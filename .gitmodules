@@ -1,3 +1,0 @@
-[submodule "interpreter"]
-	path = interpreter
-	url = git@gitlab.uwe.ac.uk:mattdowdell/maude.git
