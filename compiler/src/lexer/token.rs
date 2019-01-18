@@ -63,6 +63,7 @@ pub enum TokenType {
 	// identifiers and literals
 	Identifier,
 	Integer,
+	Float,
 
 	// operators
 	Plus,
@@ -72,7 +73,9 @@ pub enum TokenType {
 
 	// delimiters
 	Semicolon,
+	Colon,
 	Comma,
+	Arrow,
 
 	// brackets
 	LeftParen,
@@ -84,6 +87,11 @@ pub enum TokenType {
 	Return,
 	True,
 	False,
+
+	// primitive types
+	TypeBool,
+	TypeInt32,
+	TypeFloat,
 }
 
 
@@ -96,7 +104,8 @@ impl fmt::Display for TokenType {
 			// these have values, so if we get this far just output the debug value
 			TokenType::Illegal
 			| TokenType::Identifier
-			| TokenType::Integer => write!(f, "{:?}", self),
+			| TokenType::Integer
+			| TokenType::Float => write!(f, "{:?}", self),
 
 			// operators
 			TokenType::Plus     => write!(f, "+"),
@@ -106,7 +115,9 @@ impl fmt::Display for TokenType {
 
 			// delimiters
 			TokenType::Semicolon => write!(f, ";"),
+			TokenType::Colon     => write!(f, ":"),
 			TokenType::Comma     => write!(f, ","),
+			TokenType::Arrow     => write!(f, "->"),
 
 			// brackets
 			TokenType::LeftParen  => write!(f, "("),
@@ -118,6 +129,11 @@ impl fmt::Display for TokenType {
 			TokenType::Return   => write!(f, "return"),
 			TokenType::True     => write!(f, "true"),
 			TokenType::False    => write!(f, "false"),
+
+			// primitive types
+			TokenType::TypeBool  => write!(f, "bool"),
+			TokenType::TypeInt32 => write!(f, "i32"),
+			TokenType::TypeFloat   => write!(f, "float"),
 		}
 	}
 }
@@ -169,6 +185,11 @@ impl Token {
 			"true"   => TokenType::True,
 			"false"  => TokenType::False,
 
+			// primitive types
+			"bool" => TokenType::TypeBool,
+			"i32"  => TokenType::TypeInt32,
+			"f32"  => TokenType::TypeFloat,
+
 			// identifier (default)
 			_ => TokenType::Identifier,
 		};
@@ -199,7 +220,8 @@ impl fmt::Display for Token {
 			// tokens with values
 			TokenType::Illegal
 			| TokenType::Identifier
-			| TokenType::Integer => write!(f, "{}", self.value.as_ref().unwrap().clone()),
+			| TokenType::Integer
+			| TokenType::Float => write!(f, "{}", self.value.as_ref().unwrap().clone()),
 
 			// tokens without values
 			_ => write!(f, "{}", self.token_type),
@@ -253,6 +275,21 @@ mod test {
 		assert_eq!(
 			Token::from_ident("false".to_string(), LOCATION),
 			token!(TokenType::False)
+		);
+
+		assert_eq!(
+			Token::from_ident("bool".to_string(), LOCATION),
+			token!(TokenType::TypeBool)
+		);
+
+		assert_eq!(
+			Token::from_ident("i32".to_string(), LOCATION),
+			token!(TokenType::TypeInt32)
+		);
+
+		assert_eq!(
+			Token::from_ident("f32".to_string(), LOCATION),
+			token!(TokenType::TypeFloat)
 		);
 
 	}

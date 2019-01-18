@@ -59,6 +59,23 @@ impl<'a> Lexer<'a> {
 	//
 	//
 	//
+	fn peek_is(&mut self, c: char, consume: bool) -> bool {
+		if self.input.peek().is_some() {
+			if *self.input.peek().unwrap() == c {
+				if consume {
+					self.next_char();
+				}
+
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	//
+	//
+	//
 	fn skip_whitespace(&mut self) {
 		loop {
 			// stop if the end of the input has been reached
@@ -100,14 +117,22 @@ impl<'a> Lexer<'a> {
 	//
 	//
 	//
-	fn read_integer(&mut self, first: char) -> String {
-		let mut integer = first.to_string();
+	fn read_number(&mut self, first: char) -> (TokenType, String) {
+		let mut number = first.to_string();
+		let mut is_float = false;
 
 		while self.input.peek().is_some() {
 			let c = *self.input.peek().clone().unwrap();
 
 			if c.is_digit(10) {
-				integer.push(c);
+				number.push(c);
+				self.next_char();
+
+				continue;
+			} else if c == '.' && !is_float {
+				is_float = true;
+
+				number.push(c);
 				self.next_char();
 
 				continue;
@@ -116,7 +141,10 @@ impl<'a> Lexer<'a> {
 			break;
 		}
 
-		integer
+		match is_float {
+			true  => (TokenType::Float, number),
+			false => (TokenType::Integer, number),
+		}
 	}
 }
 
@@ -135,6 +163,7 @@ impl<'a> Iterator for Lexer<'a> {
 		self.skip_whitespace();
 
 		let next = self.next_char();
+		let location = self.location;
 
 		if next.is_none() {
 			None
@@ -142,26 +171,31 @@ impl<'a> Iterator for Lexer<'a> {
 			let c = next.unwrap();
 			match c {
 				// operators
-				'+' => Some(Token::from_type(TokenType::Plus, self.location)),
-				'-' => Some(Token::from_type(TokenType::Minus, self.location)),
-				'*' => Some(Token::from_type(TokenType::Multiply, self.location)),
-				'/' => Some(Token::from_type(TokenType::Divide, self.location)),
+				'+' => Some(Token::from_type(TokenType::Plus, location)),
+				'-' => {
+					if self.peek_is('>', true) {
+						Some(Token::from_type(TokenType::Arrow, location))
+					} else {
+						Some(Token::from_type(TokenType::Minus, location))
+					}
+				},
+				'*' => Some(Token::from_type(TokenType::Multiply, location)),
+				'/' => Some(Token::from_type(TokenType::Divide, location)),
 
 				// delimiters
-				';' => Some(Token::from_type(TokenType::Semicolon, self.location)),
-				',' => Some(Token::from_type(TokenType::Comma, self.location)),
+				';' => Some(Token::from_type(TokenType::Semicolon, location)),
+				':' => Some(Token::from_type(TokenType::Colon, location)),
+				',' => Some(Token::from_type(TokenType::Comma, location)),
 
 				// brackets
-				'(' => Some(Token::from_type(TokenType::LeftParen, self.location)),
-				')' => Some(Token::from_type(TokenType::RightParen, self.location)),
+				'(' => Some(Token::from_type(TokenType::LeftParen, location)),
+				')' => Some(Token::from_type(TokenType::RightParen, location)),
 
 				_ => {
-					let location = self.location;
-
 					// integer
 					if c.is_digit(10) {
-						let value = self.read_integer(c);
-						Some(Token::new(TokenType::Integer, value, location))
+						let (tt, value) = self.read_number(c);
+						Some(Token::new(tt, value, location))
 
 					// identifier or keyword
 					} else if c.is_ascii_alphabetic() || c  == '_' {
@@ -232,10 +266,12 @@ mod test {
 
 	#[test]
 	fn test_delimiters() {
-		let lexer = Lexer::new(";,");
+		let lexer = Lexer::new(";:,->");
 		let expected = vec![
 			token!(TokenType::Semicolon, location!(1)),
-			token!(TokenType::Comma, location!(2)),
+			token!(TokenType::Colon, location!(2)),
+			token!(TokenType::Comma, location!(3)),
+			token!(TokenType::Arrow, location!(4)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -261,6 +297,18 @@ mod test {
 		let lexer = Lexer::new("12");
 		let expected = vec![
 			token!(TokenType::Integer, "12", location!(1)),
+		];
+
+		for (i, token) in lexer.enumerate() {
+			assert_eq!(token, expected[i]);
+		}
+	}
+
+	#[test]
+	fn test_float() {
+		let lexer = Lexer::new("12.0");
+		let expected = vec![
+			token!(TokenType::Float, "12.0", location!(1)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -295,6 +343,20 @@ mod test {
 			token!(TokenType::Return, location!(8)),
 			token!(TokenType::True, location!(15)),
 			token!(TokenType::False, location!(20)),
+		];
+
+		for (i, token) in lexer.enumerate() {
+			assert_eq!(token, expected[i]);
+		}
+	}
+
+	#[test]
+	fn test_primitive_types() {
+		let lexer = Lexer::new("bool i32 f32");
+		let expected = vec![
+			token!(TokenType::TypeBool, location!(1)),
+			token!(TokenType::TypeInt32, location!(6)),
+			token!(TokenType::TypeFloat, location!(10)),
 		];
 
 		for (i, token) in lexer.enumerate() {
