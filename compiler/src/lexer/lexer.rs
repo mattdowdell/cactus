@@ -1,6 +1,16 @@
+//! An implementation of a lexer as an iterator.
 //!
+//! # Usage
+//! ```
+//! use compiler::lexer::lexer::Lexer;
 //!
+//! let lexer = Lexer::new("let x: i32 = 1");
 //!
+//! for token in lexer {
+//!     // do something with the tokens here
+//!     println!("{:?}", token);
+//! }
+//! ```
 
 use std::iter::Peekable;
 use std::str::Chars;
@@ -29,9 +39,14 @@ pub struct Lexer<'a> {
 
 
 impl<'a> Lexer<'a> {
+	/// Create a new instance of `Lexer`.
 	///
+	/// # Example
+	/// ```
+	/// use compiler::lexer::lexer::Lexer;
 	///
-	///
+	/// Lexer::new("let x: i32 = 1;");
+	/// ```
 	pub fn new(input: &'a str) -> Lexer<'a> {
 		Lexer {
 			input: input.chars().peekable(),
@@ -39,9 +54,10 @@ impl<'a> Lexer<'a> {
 		}
 	}
 
+	// Get the next char from the input iterator.
 	//
-	//
-	//
+	// Broadly the same as calling `next`, but also tracks newlines and thus the position in the
+	// input string in terms of lines and columns.
 	fn next_char(&mut self) -> Option<char> {
 		let next = self.input.next();
 
@@ -56,10 +72,9 @@ impl<'a> Lexer<'a> {
 		next
 	}
 
-	//
-	//
-	//
-	fn peek_is(&mut self, c: char, consume: bool) -> bool {
+	// Helper function for testing is the next character is a specific char with the option to
+	// consume if a match is found.
+	fn peek_char_is(&mut self, c: char, consume: bool) -> bool {
 		if self.input.peek().is_some() {
 			if *self.input.peek().unwrap() == c {
 				if consume {
@@ -73,9 +88,7 @@ impl<'a> Lexer<'a> {
 		return false;
 	}
 
-	//
-	//
-	//
+	// Move the input iterator to the next non-whitespace character.
 	fn skip_whitespace(&mut self) {
 		loop {
 			// stop if the end of the input has been reached
@@ -92,9 +105,10 @@ impl<'a> Lexer<'a> {
 		}
 	}
 
+	// Read an identifier from the input, using the given char as the first character.
 	//
-	//
-	//
+	// Identifiers must start with ASCII alphabetic characters or an underscore and then can be any
+	// ASCII alphanumeric character or an underscore.
 	fn read_identifier(&mut self, first: char) -> String {
 		let mut ident = first.to_string();
 
@@ -114,9 +128,9 @@ impl<'a> Lexer<'a> {
 		ident
 	}
 
+	// Read a number from the input, using the given char as the first character.
 	//
-	//
-	//
+	// Numbers can be integers or floats consisting of decimal digits.
 	fn read_number(&mut self, first: char) -> (TokenType, String) {
 		let mut number = first.to_string();
 		let mut is_float = false;
@@ -150,14 +164,10 @@ impl<'a> Lexer<'a> {
 
 
 impl<'a> Iterator for Lexer<'a> {
-	///
-	///
-	///
+	// The return type of the iterator.
 	type Item = Token;
 
-	///
-	///
-	///
+	// Move the iterator forward by one.
 	fn next(&mut self) -> Option<Self::Item> {
 		// jump to the next non-whitespace character
 		self.skip_whitespace();
@@ -171,9 +181,10 @@ impl<'a> Iterator for Lexer<'a> {
 			let c = next.unwrap();
 			match c {
 				// operators
+				'=' => Some(Token::from_type(TokenType::Assign, location)),
 				'+' => Some(Token::from_type(TokenType::Plus, location)),
 				'-' => {
-					if self.peek_is('>', true) {
+					if self.peek_char_is('>', true) {
 						Some(Token::from_type(TokenType::Arrow, location))
 					} else {
 						Some(Token::from_type(TokenType::Minus, location))
@@ -236,6 +247,7 @@ mod test {
 		);
 	}
 
+	// Test illegal characters are correctly matched.
 	#[test]
 	fn test_illegal() {
 		let lexer = Lexer::new("@ ~");
@@ -249,14 +261,16 @@ mod test {
 		}
 	}
 
+	// Test operators are correctly matched.
 	#[test]
 	fn test_operators() {
-		let lexer = Lexer::new("+-*/");
+		let lexer = Lexer::new("=+-*/");
 		let expected = vec![
-			token!(TokenType::Plus, location!(1)),
-			token!(TokenType::Minus, location!(2)),
-			token!(TokenType::Multiply, location!(3)),
-			token!(TokenType::Divide, location!(4)),
+			token!(TokenType::Assign, location!(1)),
+			token!(TokenType::Plus, location!(2)),
+			token!(TokenType::Minus, location!(3)),
+			token!(TokenType::Multiply, location!(4)),
+			token!(TokenType::Divide, location!(5)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -264,6 +278,7 @@ mod test {
 		}
 	}
 
+	// Test delimiters are correctly matched.
 	#[test]
 	fn test_delimiters() {
 		let lexer = Lexer::new(";:,->");
@@ -279,6 +294,7 @@ mod test {
 		}
 	}
 
+	// Test brackets are correctly matched.
 	#[test]
 	fn test_brackets() {
 		let lexer = Lexer::new("()");
@@ -292,6 +308,7 @@ mod test {
 		}
 	}
 
+	// Test integers are correctly matched.
 	#[test]
 	fn test_integer() {
 		let lexer = Lexer::new("12");
@@ -304,6 +321,7 @@ mod test {
 		}
 	}
 
+	// Test floats are correctly matched.
 	#[test]
 	fn test_float() {
 		let lexer = Lexer::new("12.0");
@@ -316,6 +334,7 @@ mod test {
 		}
 	}
 
+	// Test identifiers are correctly matched.
 	#[test]
 	fn test_identifier() {
 		let lexer = Lexer::new("a A _ _a _A _0 a0");
@@ -334,6 +353,7 @@ mod test {
 		}
 	}
 
+	// Test keywords are correctly matched.
 	#[test]
 	fn test_keywords() {
 		let lexer = Lexer::new("let fn return true false");
@@ -350,6 +370,7 @@ mod test {
 		}
 	}
 
+	// Test primitive types are correctly matched.
 	#[test]
 	fn test_primitive_types() {
 		let lexer = Lexer::new("bool i32 f32");
@@ -364,6 +385,7 @@ mod test {
 		}
 	}
 
+	// Test that newlines correctly increment the location data.
 	#[test]
 	fn test_newline() {
 		let lexer = Lexer::new("foo\nbar");
