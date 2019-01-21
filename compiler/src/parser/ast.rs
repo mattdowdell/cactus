@@ -50,6 +50,7 @@ pub enum Statement {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
 	Literal(Literal),
+	Identifier(Identifier),
 }
 
 
