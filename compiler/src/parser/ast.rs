@@ -50,6 +50,7 @@ pub enum Statement {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
 	Literal(Literal),
+	Identifier(Identifier),
 }
 
 
@@ -106,24 +107,58 @@ pub enum Type {
 }
 
 
-///
-///
-///
+/// A representation of an Identifier.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier {
-	value: String,
-	location: Location,
+	pub value: String,
+	pub location: Location,
 }
 
 
 impl Identifier {
+	/// Create a new instance of an identifier.
 	///
+	/// # Example
+	/// ```
+	/// use compiler::lexer::token::Location;
+	/// use compiler::parser::ast::Identifier;
 	///
+	/// let location = Location::new(1, 0);
+	/// let ident = Identifier::new("foo".to_string(), location);
 	///
+	/// assert_eq!(ident.value, "foo");
+	/// assert_eq!(ident.location.line, 1);
+	/// assert_eq!(ident.location.column, 0);
+	/// ```
 	pub fn new(value: String, location: Location) -> Identifier {
 		Identifier {
 			value: value,
 			location: location,
 		}
 	}
+
+	/// Create a new identifier from an existing identifier token.
+	///
+	/// # Example
+	/// ```
+	/// use compiler::lexer::token::{Location, Token};
+	/// use compiler::parser::ast::Identifier;
+	///
+	/// let location = Location::new(1, 0);
+	/// let token = Token::from_ident("foo".to_string(), location);
+	/// let ident = Identifier::from_token(token);
+	///
+	/// assert_eq!(ident.value, "foo");
+	/// assert_eq!(ident.location.line, 1);
+	/// assert_eq!(ident.location.column, 0);
+	/// ```
+	pub fn from_token(token: Token) -> Identifier {
+		if token.token_type != TokenType::Identifier {
+			panic!("Unexpected token type: {:?}, expected: Identifier (L{}:{})",
+				token.token_type, token.location.line, token.location.column);
+		}
+
+		Identifier::new(token.value.unwrap(), token.location)
+	}
 }
+

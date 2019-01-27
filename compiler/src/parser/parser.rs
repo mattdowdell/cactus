@@ -65,19 +65,44 @@ impl<'a> Parser<'a> {
 				break;
 			}
 
-			let token = self.lexer.next().unwrap();
-			let statement = match token.token_type {
-				TokenType::Let => self.parse_let_statement(),
-				//TokenType::Return => {},
-
-				// TODO: handle this better
-				_ => panic!("Unexpected token: {:?}", token),
-			};
+			let statement = self.parse_statement();
 
 			match statement {
 				Ok(statement) => self.module.push(statement),
-				Err(error) => self.errors.push(error),
+				Err(error) => {
+					self.errors.push(error);
+
+					// consume tokens until we find a synchronisation point
+					// at which point we can safely start the parser again
+					loop {
+						if self.lexer.peek().is_none() {
+							break;
+						}
+
+						if self.peek_type_is(TokenType::Semicolon) {
+							break;
+						}
+
+						self.lexer.next();
+					}
+				},
 			};
+		}
+	}
+
+	//
+	//
+	//
+	fn parse_statement(&mut self) -> Result<Statement, Error> {
+		let token = self.lexer.next().unwrap();
+
+		match token.token_type {
+			TokenType::Let => self.parse_let_statement(),
+			TokenType::Return => self.parse_return_statement(),
+
+			// TODO: handle this better
+			_ => panic!("Unexpected token: {:?} (L{}:{})",
+				        token, token.location.line, token.location.column),
 		}
 	}
 
@@ -120,6 +145,23 @@ impl<'a> Parser<'a> {
 		}
 
 		Ok(Statement::Let(ident, type_hint, expression))
+	}
+
+
+	//
+	//
+	//
+	fn parse_return_statement(&mut self) -> Result<Statement, Error> {
+		let expression = self.parse_expression()?;
+
+		if !self.peek_type_is(TokenType::Semicolon) {
+			let token = self.lexer.next().unwrap_or(Token::eof());
+			return Err(Error::new(ErrorCode::E0001, token.location));
+		} else {
+			self.lexer.next();
+		}
+
+		Ok(Statement::Return(expression))
 	}
 
 	//
@@ -166,6 +208,8 @@ impl<'a> Parser<'a> {
 			| TokenType::True
 			| TokenType::False => Ok(Expression::Literal(Literal::from_token(token))),
 
+			TokenType::Identifier => Ok(Expression::Identifier(Identifier::from_token(token))),
+
 			_ => Err(Error::new(ErrorCode::E0001, token.location))
 		}
 	}
@@ -176,13 +220,24 @@ impl<'a> Parser<'a> {
 mod test {
 	use super::*;
 
-	// Test illegal characters are correctly matched.
+	// Test a let statement is correctly matched.
 	#[test]
 	fn test_let_statement() {
 		let mut parser = Parser::new("let x: i32 = 5;");
 		let expected = Statement::Let(Identifier::new("x".to_string(), Location::new(1, 5)),
-			                          Type::Int32,
-			                          Expression::Literal(Literal::Int32(5)));
+										Type::Int32,
+										Expression::Literal(Literal::Int32(5)));
+
+		parser.parse();
+
+		assert_eq!(parser.module.statements[0], expected);
+	}
+
+	// Test a return statement is correctly matched.
+	#[test]
+	fn test_return_statement() {
+		let mut parser = Parser::new("return 5;");
+		let expected = Statement::Return(Expression::Literal(Literal::Int32(5)));
 
 		parser.parse();
 
