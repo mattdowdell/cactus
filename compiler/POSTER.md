@@ -16,10 +16,11 @@ fn square(n: i32) -> i32 {
 square:
 	PUSH ARGS;
 	LOAD;
-	DUP;
+	PUSH ARGS;
+	LOAD;
 	MUL;
-	HALT;
-	PUSHRET;
+	MOVRET;
+	RETURN;
 ```
 
 ## Assembly
