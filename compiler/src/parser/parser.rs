@@ -36,6 +36,13 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
 	/// Create a new instance of `Parser`.
+	///
+	/// # Example
+	/// ```
+	/// use compiler::parser::parser::Parser;
+	///
+	/// Parser::new("let x: i32 = 5;");
+	/// ```
 	pub fn new(input: &'a str) -> Parser<'a> {
 		Parser {
 			errors: Vec::new(),
@@ -113,9 +120,9 @@ impl<'a> Parser<'a> {
 		self.lexer.peek().is_some() && self.lexer.peek().unwrap().token_type == token_type
 	}
 
+	// Parse a let (assignment) statement.
 	//
-	//
-	//
+	// should be in the form `let <identifier>: <type> = <expression>;`
 	fn parse_let_statement(&mut self) -> Result<Statement, Error> {
 		let ident = self.parse_identifier()?;
 
@@ -147,12 +154,11 @@ impl<'a> Parser<'a> {
 		Ok(Statement::Let(ident, type_hint, expression))
 	}
 
-
+	// Parse a return statement.
 	//
-	//
-	//
-	fn parse_return_statement(&mut self) -> Result<Statement, Error> {
-		let expression = self.parse_expression()?;
+	// Should be in the form `return <expression>;`
+	fn parse_return_statement(&mut self) -> Result>statement, Error> {
+		let expr = self.parse_expression()?;
 
 		if !self.peek_type_is(TokenType::Semicolon) {
 			let token = self.lexer.next().unwrap_or(Token::eof());
@@ -242,5 +248,20 @@ mod test {
 		parser.parse();
 
 		assert_eq!(parser.module.statements[0], expected);
+	}
+
+	#[test]
+	fn test_return_statement() {
+		let mut parser = Parser::new("return 5; return x;");
+		let expected = vec![
+			Statement::Return(Expression::Literal(Literal::Int32(5))),
+			Statement::Return(Expression::Identifier(Identifier::new("x".to_string(), Location::new(1, 18)))),
+		]
+
+		parser.parse();
+
+		for (i, statement) in parser.module.statements.iter().enumerate() {
+			assert_eq!(statement, expected[i]);
+		}
 	}
 }

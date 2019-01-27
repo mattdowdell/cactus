@@ -36,3 +36,9 @@ fn fib(n: i32) -> i32 {
 	return b;
 }
 ```
+
+* enums
+* structs
+* conditionals (`if .. else if .. else`)
+* switch (`switch .. case .. break`)
+* functions (`fn x(arg: <type>) -> type {}`)
