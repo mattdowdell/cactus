@@ -144,6 +144,16 @@ pub enum TokenType {
 	Minus,
 	Multiply,
 	Divide,
+	Bang,
+
+	// comparisons
+	LessThan,
+	LessThanOrEqual,
+	GreaterThan,
+	GreaterThanOrEqual,
+	Equal,
+	NotEqual,
+
 
 	// delimiters
 	Semicolon,
@@ -154,6 +164,8 @@ pub enum TokenType {
 	// brackets
 	LeftParen,
 	RightParen,
+	LeftBrace,
+	RightBrace,
 
 	// keywords
 	Let,
@@ -190,6 +202,15 @@ impl fmt::Display for TokenType {
 			TokenType::Minus    => write!(f, "-"),
 			TokenType::Multiply => write!(f, "*"),
 			TokenType::Divide   => write!(f, "/"),
+			TokenType::Bang     => write!(f, "!"),
+
+			// comparisons
+			TokenType::LessThan           => write!(f, "<"),
+			TokenType::LessThanOrEqual    => write!(f, "<="),
+			TokenType::GreaterThan        => write!(f, ">"),
+			TokenType::GreaterThanOrEqual => write!(f, ">="),
+			TokenType::Equal              => write!(f, "=="),
+			TokenType::NotEqual           => write!(f, "!="),
 
 			// delimiters
 			TokenType::Semicolon => write!(f, ";"),
@@ -200,6 +221,8 @@ impl fmt::Display for TokenType {
 			// brackets
 			TokenType::LeftParen  => write!(f, "("),
 			TokenType::RightParen => write!(f, ")"),
+			TokenType::LeftBrace  => write!(f, "{{"),
+			TokenType::RightBrace => write!(f, "}}"),
 
 			// keywords
 			TokenType::Let      => write!(f, "let"),

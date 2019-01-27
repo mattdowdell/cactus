@@ -2,7 +2,7 @@
 
 
 use std::fmt;
-use lexer::token::Location;
+use lexer::token::{Location, Token};
 
 /// Codes that map to errors that can occur during parsing.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -47,6 +47,23 @@ impl Error {
 		Error {
 			location: location,
 			code: code,
+		}
+	}
+
+	///
+	///
+	///
+	pub fn from_token(code: ErrorCode, token: Option<Token>) -> Error {
+		if token.is_none() {
+			Error {
+				location: Location::end(),
+				code: code,
+			}
+		} else {
+			Error {
+				location: token.unwrap().location,
+				code: code,
+			}
 		}
 	}
 }
