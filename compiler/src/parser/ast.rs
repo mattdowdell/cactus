@@ -53,6 +53,19 @@ impl Module {
 }
 
 
+impl fmt::Display for Module {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		let mut ret = String::new();
+
+		for statement in &self.statements {
+			ret = format!("{}{}\n", ret, statement);
+		}
+
+		write!(f, "{}", ret)
+	}
+}
+
+
 ///
 ///
 ///
@@ -82,14 +95,18 @@ impl fmt::Display for Statement {
 pub enum Expression {
 	Literal(Literal),
 	Identifier(Identifier),
+	Prefix(Operator, Box<Expression>),
+	Infix(Box<Expression>, Operator, Box<Expression>),
 }
 
 
 impl fmt::Display for Expression {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Expression::Literal(value)    => write!(f, "{}", value),
-			Expression::Identifier(value) => write!(f, "{}", value),
+			Expression::Literal(value)         => write!(f, "{}", value),
+			Expression::Identifier(value)      => write!(f, "{}", value),
+			Expression::Prefix(op, right)      => write!(f, "{}{}", op, right),
+			Expression::Infix(left, op, right) => write!(f, "({} {} {})", left, op, right),
 		}
 	}
 }
@@ -229,5 +246,95 @@ impl Identifier {
 impl fmt::Display for Identifier {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.value)
+	}
+}
+
+
+///
+///
+///
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Operator {
+	// prefix operators
+	UnaryMinus,
+	Not,
+
+	// infix operators
+	Plus,
+	Minus,
+	Multiply,
+	Divide,
+}
+
+
+impl Operator {
+	/// Convert a token to an operator for a prefix expression.
+	///
+	/// If the token type is not a valid prefix operator then a panic will occur.
+	///
+	/// # Example
+	/// ```
+	/// use compiler::lexer::token::{Location, Token, TokenType};
+	/// use compiler::parser::ast::Operator;
+	///
+	/// let location = Location::new(1, 0);
+	/// let token = Token::from_type(TokenType::Minus, location);
+	/// let operator = Operator::from_prefix_token(token);
+	///
+	/// assert_eq!(operator, Operator::UnaryMinus);
+	/// ```
+	pub fn from_prefix_token(token: Token) -> Operator {
+		match token.token_type {
+			TokenType::Minus => Operator::UnaryMinus,
+			TokenType::Bang  => Operator::Not,
+
+			_ => panic!("Unexpected token for prefix operator: {} (L{}:{})",
+				token.token_type, token.location.line, token.location.column),
+		}
+	}
+
+	/// Convert a token to an operator for a infix expression.
+	///
+	/// If the token type is not a valid infix operator then a panic will occur.
+	///
+	/// # Example
+	/// ```
+	/// use compiler::lexer::token::{Location, Token, TokenType};
+	/// use compiler::parser::ast::Operator;
+	///
+	/// let location = Location::new(1, 0);
+	/// let token = Token::from_type(TokenType::Minus, location);
+	/// let operator = Operator::from_infix_token(token);
+	///
+	/// assert_eq!(operator, Operator::Minus);
+	/// ```
+	pub fn from_infix_token(token: Token) -> Operator {
+		match token.token_type {
+			TokenType::Plus => Operator::Plus,
+			TokenType::Minus => Operator::Minus,
+			TokenType::Multiply => Operator::Multiply,
+			TokenType::Divide => Operator::Divide,
+
+			_ => panic!("Unexpected token for infix operator: {} (L{}:{})",
+				token.token_type, token.location.line, token.location.column),
+		}
+	}
+}
+
+
+impl fmt::Display for Operator {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			// prefix operators
+			Operator::UnaryMinus => write!(f, "-"),
+			Operator::Not        => write!(f, "!"),
+
+			// infix operators
+			Operator::Plus     => write!(f, "+"),
+			Operator::Minus    => write!(f, "-"),
+			Operator::Multiply => write!(f, "*"),
+			Operator::Divide   => write!(f, "/"),
+
+		}
 	}
 }

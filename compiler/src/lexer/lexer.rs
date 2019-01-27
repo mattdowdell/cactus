@@ -180,8 +180,14 @@ impl<'a> Iterator for Lexer<'a> {
 		} else {
 			let c = next.unwrap();
 			match c {
-				// operators
-				'=' => Some(Token::from_type(TokenType::Assign, location)),
+				// operators and comparisons
+				'=' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::Equal, location))
+					} else {
+						Some(Token::from_type(TokenType::Assign, location))
+					}
+				}
 				'+' => Some(Token::from_type(TokenType::Plus, location)),
 				'-' => {
 					if self.peek_char_is('>', true) {
@@ -192,6 +198,27 @@ impl<'a> Iterator for Lexer<'a> {
 				},
 				'*' => Some(Token::from_type(TokenType::Multiply, location)),
 				'/' => Some(Token::from_type(TokenType::Divide, location)),
+				'!' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::NotEqual, location))
+					} else {
+						Some(Token::from_type(TokenType::Bang, location))
+					}
+				},
+				'<' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::LessThanOrEqual, location))
+					} else {
+						Some(Token::from_type(TokenType::LessThan, location))
+					}
+				},
+				'>' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::GreaterThanOrEqual, location))
+					} else {
+						Some(Token::from_type(TokenType::GreaterThan, location))
+					}
+				},
 
 				// delimiters
 				';' => Some(Token::from_type(TokenType::Semicolon, location)),
@@ -264,13 +291,32 @@ mod test {
 	// Test operators are correctly matched.
 	#[test]
 	fn test_operators() {
-		let lexer = Lexer::new("=+-*/");
+		let lexer = Lexer::new("=+-*/!");
 		let expected = vec![
 			token!(TokenType::Assign, location!(1)),
 			token!(TokenType::Plus, location!(2)),
 			token!(TokenType::Minus, location!(3)),
 			token!(TokenType::Multiply, location!(4)),
 			token!(TokenType::Divide, location!(5)),
+			token!(TokenType::Bang, location!(6)),
+		];
+
+		for (i, token) in lexer.enumerate() {
+			assert_eq!(token, expected[i]);
+		}
+	}
+
+	// Test comparisons are correctly matched.
+	#[test]
+	fn test_comparisons() {
+		let lexer = Lexer::new("< > <= >= == !=");
+		let expected = vec![
+			token!(TokenType::LessThan, location!(1)),
+			token!(TokenType::GreaterThan, location!(3)),
+			token!(TokenType::LessThanOrEqual, location!(5)),
+			token!(TokenType::GreaterThanOrEqual, location!(8)),
+			token!(TokenType::Equal, location!(11)),
+			token!(TokenType::NotEqual, location!(14)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -392,6 +438,24 @@ mod test {
 		let expected = vec![
 			token!(TokenType::Identifier, "foo", location!(1)),
 			token!(TokenType::Identifier, "bar", location!(2, 1)),
+		];
+
+		for (i, token) in lexer.enumerate() {
+			assert_eq!(token, expected[i]);
+		}
+	}
+
+	// Test that prefix expressions are correctly broken into tokens
+	#[test]
+	fn test_prefix_expressions() {
+		let lexer = Lexer::new("!x; -5;");
+		let expected = vec![
+			token!(TokenType::Bang, location!(1)),
+			token!(TokenType::Identifier, "x", location!(2)),
+			token!(TokenType::Semicolon, location!(3)),
+			token!(TokenType::Minus, location!(5)),
+			token!(TokenType::Integer, "5", location!(6)),
+			token!(TokenType::Semicolon, location!(7)),
 		];
 
 		for (i, token) in lexer.enumerate() {
