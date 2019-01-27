@@ -228,6 +228,8 @@ impl<'a> Iterator for Lexer<'a> {
 				// brackets
 				'(' => Some(Token::from_type(TokenType::LeftParen, location)),
 				')' => Some(Token::from_type(TokenType::RightParen, location)),
+				'{' => Some(Token::from_type(TokenType::LeftBrace, location)),
+				'}' => Some(Token::from_type(TokenType::RightBrace, location)),
 
 				_ => {
 					// integer
@@ -343,10 +345,12 @@ mod test {
 	// Test brackets are correctly matched.
 	#[test]
 	fn test_brackets() {
-		let lexer = Lexer::new("()");
+		let lexer = Lexer::new("(){}");
 		let expected = vec![
 			token!(TokenType::LeftParen, location!(1)),
 			token!(TokenType::RightParen, location!(2)),
+			token!(TokenType::LeftBrace, location!(3)),
+			token!(TokenType::RightBrace, location!(4)),
 		];
 
 		for (i, token) in lexer.enumerate() {

@@ -2,7 +2,10 @@
 //!
 //!
 
+extern crate itertools;
+
 use std::fmt;
+use itertools::join;
 use lexer::token::{Location, Token, TokenType};
 
 
@@ -65,6 +68,8 @@ impl fmt::Display for Module {
 	}
 }
 
+pub type Block = Module;
+
 
 ///
 ///
@@ -74,6 +79,7 @@ pub enum Statement {
 	Let(Identifier, Type, Expression),
 	Return(Expression),
 	Expression(Expression),
+	Block(Block),
 }
 
 
@@ -82,7 +88,8 @@ impl fmt::Display for Statement {
 		match self {
 			Statement::Let(ident, typehint, expr) => write!(f, "let {}: {} = {};", ident, typehint, expr),
 			Statement::Return(expr)               => write!(f, "return {};", expr),
-			Statement::Expression(expr)           => write!(f, "{};", expr)
+			Statement::Expression(expr)           => write!(f, "{}", expr),
+			Statement::Block(block)               => write!(f, "{{\n{}}}", block),
 		}
 	}
 }
@@ -97,6 +104,7 @@ pub enum Expression {
 	Identifier(Identifier),
 	Prefix(Operator, Box<Expression>),
 	Infix(Box<Expression>, Operator, Box<Expression>),
+	Function(Identifier, Vec<Parameter>, Type, Box<Statement>),
 }
 
 
@@ -107,6 +115,13 @@ impl fmt::Display for Expression {
 			Expression::Identifier(value)      => write!(f, "{}", value),
 			Expression::Prefix(op, right)      => write!(f, "{}{}", op, right),
 			Expression::Infix(left, op, right) => write!(f, "({} {} {})", left, op, right),
+			Expression::Function(ident, params, ret_type, block) => {
+				write!(f, "fn {}({}) -> {} {}",
+					ident,
+					join(params, ", "),
+					ret_type,
+					block)
+			}
 		}
 	}
 }
@@ -336,5 +351,35 @@ impl fmt::Display for Operator {
 			Operator::Divide   => write!(f, "/"),
 
 		}
+	}
+}
+
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct Parameter {
+	identifier: Identifier,
+	type_hint: Type,
+}
+
+
+impl Parameter {
+	///
+	///
+	///
+	pub fn new(identifier: Identifier, type_hint: Type) -> Parameter {
+		Parameter {
+			identifier: identifier,
+			type_hint: type_hint,
+		}
+	}
+}
+
+
+impl fmt::Display for Parameter {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}: {}", self.identifier, self.type_hint)
 	}
 }

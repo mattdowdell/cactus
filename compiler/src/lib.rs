@@ -2,5 +2,7 @@
 //!
 //! The compiler takes the high-level language and produces bytecode.
 
+extern crate itertools;
+
 pub mod lexer;
 pub mod parser;

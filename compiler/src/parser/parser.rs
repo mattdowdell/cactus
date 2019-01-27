@@ -20,6 +20,8 @@ use parser::{
 		Type,
 		Identifier,
 		Operator,
+		Parameter,
+		Block,
 	},
 	error::{
 		Error,
@@ -281,6 +283,7 @@ impl<'a> Parser<'a> {
 	//
 	fn parse_expression(&mut self, token: Token, precedence: Precedence) -> Result<Expression, Error> {
 		let mut left = match token.token_type {
+			// TODO: move specific token types to be handled by parse_prefix_expression?
 			TokenType::Identifier => Ok(Expression::Identifier(Identifier::from_token(token))),
 			TokenType::Integer
 			| TokenType::Float
@@ -289,6 +292,8 @@ impl<'a> Parser<'a> {
 
 			TokenType::Bang
 			| TokenType::Minus => self.parse_prefix_expression(token),
+
+			TokenType::Function => self.parse_function_expression(),
 
 			_ => {
 				println!("error in parse_expression");
@@ -353,6 +358,103 @@ impl<'a> Parser<'a> {
 			Precedence::Lowest
 		}
 	}
+
+	//
+	//
+	//
+	fn parse_function_expression(&mut self) -> Result<Expression, Error> {
+		let ident = self.parse_identifier()?;
+
+		if !self.peek_type_is(TokenType::LeftParen) {
+			let token = self.lexer.next().unwrap_or(Token::eof());
+			return Err(Error::new(ErrorCode::E0001, token.location));
+		} else {
+			self.lexer.next();
+		}
+
+		let mut params: Vec<Parameter> = Vec::new();
+
+		loop {
+			if self.peek_type_is(TokenType::RightParen) {
+				break;
+			}
+
+			let ident = self.parse_identifier()?;
+
+			if !self.peek_type_is(TokenType::Colon) {
+				let token = self.lexer.next().unwrap_or(Token::eof());
+				return Err(Error::new(ErrorCode::E0001, token.location));
+			} else {
+				self.lexer.next();
+			}
+
+			let type_hint = self.parse_type()?;
+			params.push(Parameter::new(ident, type_hint));
+
+			if self.peek_type_is(TokenType::Comma) {
+				self.lexer.next();
+			} else {
+				break;
+			}
+		}
+
+		if !self.peek_type_is(TokenType::RightParen) {
+			let token = self.lexer.next().unwrap_or(Token::eof());
+			return Err(Error::new(ErrorCode::E0001, token.location));
+		} else {
+			self.lexer.next();
+		}
+
+		if !self.peek_type_is(TokenType::Arrow) {
+			let token = self.lexer.next().unwrap_or(Token::eof());
+			return Err(Error::new(ErrorCode::E0001, token.location));
+		} else {
+			self.lexer.next();
+		}
+
+		let ret_type = self.parse_type()?;
+		let block = self.parse_block_statement()?;
+
+		Ok(Expression::Function(ident, params, ret_type, Box::new(block)))
+	}
+
+	//
+	//
+	//
+	fn parse_block_statement(&mut self) -> Result<Statement, Error> {
+		if !self.peek_type_is(TokenType::LeftBrace) {
+			let token = self.lexer.next().unwrap_or(Token::eof());
+			return Err(Error::new(ErrorCode::E0001, token.location));
+		} else {
+			self.lexer.next();
+		}
+
+		let mut block = Block::new();
+
+		loop {
+			if self.lexer.peek().is_none() {
+				break;
+			}
+
+			if self.peek_type_is(TokenType::RightBrace) {
+				break;
+			}
+
+			let token = self.lexer.next().unwrap();
+			let statement = self.parse_statement(token)?;
+
+			block.push(statement);
+		}
+
+		if !self.peek_type_is(TokenType::RightBrace) {
+			let token = self.lexer.next().unwrap_or(Token::eof());
+			return Err(Error::new(ErrorCode::E0001, token.location));
+		} else {
+			self.lexer.next();
+		}
+
+		Ok(Statement::Block(block))
+	}
 }
 
 
@@ -382,6 +484,22 @@ mod test {
 			Expression::Literal(Literal::Int32($value))
 		)
 	}
+
+	//
+	//
+	/*
+	macro_rules! param {
+		($ident:expr, $line:expr, $column:expr, $type:expr) => (
+			Parameter::new(
+				Identifier::new(
+					$ident.to_string(),
+					Location::new($line, $column)
+				),
+				$type
+			)
+		)
+	}
+	*/
 
 	// Test precedence ordering
 	#[test]
@@ -475,6 +593,23 @@ mod test {
 
 		for (i, statement) in parser.module.statements.iter().enumerate() {
 			assert_eq!(statement, &expected[i]);
+		}
+	}
+
+	// Test functions are correctly matched
+	#[test]
+	fn test_function() {
+		let mut parser = Parser::new("fn square(n: i32) -> i32 { return n * n; }");
+		let expected = vec![
+			"fn square(n: i32) -> i32 {\nreturn (n * n);\n}"
+		];
+
+		parser.parse();
+
+		println!("errors: {}", parser.errors.len());
+
+		for (i, statement) in parser.module.statements.iter().enumerate() {
+			assert_eq!(format!("{}", statement), expected[i]);
 		}
 	}
 }

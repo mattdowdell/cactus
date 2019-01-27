@@ -164,6 +164,8 @@ pub enum TokenType {
 	// brackets
 	LeftParen,
 	RightParen,
+	LeftBrace,
+	RightBrace,
 
 	// keywords
 	Let,
@@ -219,6 +221,8 @@ impl fmt::Display for TokenType {
 			// brackets
 			TokenType::LeftParen  => write!(f, "("),
 			TokenType::RightParen => write!(f, ")"),
+			TokenType::LeftBrace  => write!(f, "{{"),
+			TokenType::RightBrace => write!(f, "}}"),
 
 			// keywords
 			TokenType::Let      => write!(f, "let"),
