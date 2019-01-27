@@ -157,8 +157,8 @@ impl<'a> Parser<'a> {
 	// Parse a return statement.
 	//
 	// Should be in the form `return <expression>;`
-	fn parse_return_statement(&mut self) -> Result>statement, Error> {
-		let expr = self.parse_expression()?;
+	fn parse_return_statement(&mut self) -> Result<Statement, Error> {
+		let expression = self.parse_expression()?;
 
 		if !self.peek_type_is(TokenType::Semicolon) {
 			let token = self.lexer.next().unwrap_or(Token::eof());
@@ -242,26 +242,16 @@ mod test {
 	// Test a return statement is correctly matched.
 	#[test]
 	fn test_return_statement() {
-		let mut parser = Parser::new("return 5;");
-		let expected = Statement::Return(Expression::Literal(Literal::Int32(5)));
-
-		parser.parse();
-
-		assert_eq!(parser.module.statements[0], expected);
-	}
-
-	#[test]
-	fn test_return_statement() {
 		let mut parser = Parser::new("return 5; return x;");
 		let expected = vec![
 			Statement::Return(Expression::Literal(Literal::Int32(5))),
 			Statement::Return(Expression::Identifier(Identifier::new("x".to_string(), Location::new(1, 18)))),
-		]
+		];
 
 		parser.parse();
 
 		for (i, statement) in parser.module.statements.iter().enumerate() {
-			assert_eq!(statement, expected[i]);
+			assert_eq!(statement, &expected[i]);
 		}
 	}
 }
