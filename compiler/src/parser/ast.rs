@@ -360,8 +360,8 @@ impl fmt::Display for Operator {
 ///
 #[derive(Clone, Debug, PartialEq)]
 pub struct Parameter {
-	identifier: Identifier,
-	type_hint: Type,
+	pub identifier: Identifier,
+	pub type_hint: Type,
 }
 
 
