@@ -44,9 +44,19 @@ pub enum Precedence {
 
 
 impl Precedence {
+	/// Convert a `TokenType` to a `Precedence`.
 	///
+	/// If the `TokenType` cannot be converted to a `Precedence` a panic will occur.
 	///
+	/// # Example
+	/// ```
+	/// use compiler::lexer::token::TokenType;
+	/// use compiler::parser::parser::Precedence;
 	///
+	/// let precedence = Precedence::from_token_type(TokenType::Equal);
+	///
+	/// assert_eq!(precedence, Precedence::Equals);
+	/// ```
 	pub fn from_token_type(token_type: TokenType) -> Precedence {
 		match token_type {
 			TokenType::Equal
@@ -65,9 +75,20 @@ impl Precedence {
 		}
 	}
 
+	/// Try to convert a `TokenType` to a `Precedence`.
 	///
+	/// # Example
+	/// ```
+	/// use compiler::lexer::token::TokenType;
+	/// use compiler::parser::parser::Precedence;
 	///
+	/// let precedence = Precedence::from_token_type_safe(TokenType::Equal);
+	/// assert!(precedence.is_ok());
+	/// assert_eq!(precedence.unwrap(), Precedence::Equals);
 	///
+	/// let precedence = Precedence::from_token_type_safe(TokenType::Illegal);
+	/// assert!(precedence.is_err());
+	/// ```
 	pub fn from_token_type_safe(token_type: TokenType) -> Result<Precedence, ()> {
 		match token_type {
 			TokenType::Equal
@@ -82,6 +103,7 @@ impl Precedence {
 			TokenType::Multiply
 			| TokenType::Divide  => Ok(Precedence::Product),
 
+			// TODO: put a proper error in here
 			_ => Err(())
 		}
 	}
