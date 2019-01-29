@@ -270,6 +270,7 @@ impl ToBytecode for ast::Expression {
 				let block_instrs: Vec<Instruction> = statement.to_bytecode();
 				ret.extend(block_instrs);
 
+				// TODO: investigate a better way of doing this
 				if ident.value == "main" {
 					ret.push(Instruction::Halt);
 				}

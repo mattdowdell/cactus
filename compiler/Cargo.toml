@@ -1,5 +1,5 @@
 [package]
-name = "compiler"
+name = "cactus"
 version = "0.1.0"
 authors = ["mattdowdell <matthew2.dowdell@live.uwe.ac.uk>"]
 

@@ -4,7 +4,7 @@
 
 #[macro_use]
 extern crate clap;
-extern crate compiler;
+extern crate cactus;
 
 use std::{
 	env,
@@ -13,7 +13,7 @@ use std::{
 	io::{Read, Write},
 };
 use clap::{App, Arg};
-use compiler::{
+use cactus::{
 	parser::parser::Parser,
 	code_gen::bytecode::{
 		Module,
