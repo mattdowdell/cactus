@@ -173,6 +173,7 @@ pub enum TokenType {
 	Return,
 	True,
 	False,
+	Print,
 
 	// primitive types
 	TypeBool,
@@ -230,6 +231,7 @@ impl fmt::Display for TokenType {
 			TokenType::Return   => write!(f, "return"),
 			TokenType::True     => write!(f, "true"),
 			TokenType::False    => write!(f, "false"),
+			TokenType::Print    => write!(f, "print"),
 
 			// primitive types
 			TokenType::TypeBool  => write!(f, "bool"),
@@ -332,6 +334,7 @@ impl Token {
 			"return" => TokenType::Return,
 			"true"   => TokenType::True,
 			"false"  => TokenType::False,
+			"print"  => TokenType::Print,
 
 			// primitive types
 			"bool" => TokenType::TypeBool,
@@ -446,6 +449,11 @@ mod test {
 		assert_eq!(
 			Token::from_ident("false".to_string(), LOCATION),
 			token!(TokenType::False)
+		);
+
+		assert_eq!(
+			Token::from_ident("print".to_string(), LOCATION),
+			token!(TokenType::Print)
 		);
 
 		assert_eq!(

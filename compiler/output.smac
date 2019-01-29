@@ -1,0 +1,13 @@
+square:
+n:
+	&n;
+	PUSH ARGS;
+	LOAD;
+	STORE;
+	&n;
+	LOAD;
+	&n;
+	LOAD;
+	MUL;
+	MOVRET;
+	RETURN;

@@ -78,6 +78,7 @@ pub type Block = Module;
 pub enum Statement {
 	Let(Identifier, Type, Expression),
 	Return(Expression),
+	Print(Expression),
 	Expression(Expression),
 	Block(Block),
 }
@@ -88,6 +89,7 @@ impl fmt::Display for Statement {
 		match self {
 			Statement::Let(ident, typehint, expr) => write!(f, "let {}: {} = {};", ident, typehint, expr),
 			Statement::Return(expr)               => write!(f, "return {};", expr),
+			Statement::Print(expr)                => write!(f, "print {};", expr),
 			Statement::Expression(expr)           => write!(f, "{}", expr),
 			Statement::Block(block)               => write!(f, "{{\n{}}}", block),
 		}
@@ -105,6 +107,7 @@ pub enum Expression {
 	Prefix(Operator, Box<Expression>),
 	Infix(Box<Expression>, Operator, Box<Expression>),
 	Function(Identifier, Vec<Parameter>, Type, Box<Statement>),
+	Call(Box<Expression>, Vec<Expression>),
 }
 
 
@@ -121,6 +124,11 @@ impl fmt::Display for Expression {
 					join(params, ", "),
 					ret_type,
 					block)
+			},
+			Expression::Call(ident, exprs) => {
+				write!(f, "{}({})",
+					ident,
+					join(exprs, ", "))
 			}
 		}
 	}
