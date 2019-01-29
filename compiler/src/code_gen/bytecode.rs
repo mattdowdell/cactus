@@ -64,6 +64,7 @@ impl BytecodeNode for Module {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Instruction {
 	AddressOf(String),
+	Halt,
 	Label(String),
 	Load,
 	Movret,
@@ -71,8 +72,11 @@ pub enum Instruction {
 	Nop,
 	Outln,
 	Push(Argument),
+	Pusharg,
+	Pushret,
 	Return,
 	Store,
+	Subcall,
 }
 
 
@@ -83,13 +87,17 @@ impl BytecodeNode for Instruction {
 			Instruction::Label(val)     => format!("{}:", val),
 			Instruction::Push(arg)     => format!("\tPUSH {};", arg.to_code()),
 
-			Instruction::Load   => "\tLOAD;".to_string(),
-			Instruction::Movret => "\tMOVRET;".to_string(),
-			Instruction::Mul    => "\tMUL;".to_string(),
-			Instruction::Nop    => "\tNOP;".to_string(),
-			Instruction::Outln  => "\tOUTLN;".to_string(),
-			Instruction::Return => "\tRETURN;".to_string(),
-			Instruction::Store  => "\tSTORE;".to_string(),
+			Instruction::Halt    => "\tHALT;".to_string(),
+			Instruction::Load    => "\tLOAD;".to_string(),
+			Instruction::Movret  => "\tMOVRET;".to_string(),
+			Instruction::Mul     => "\tMUL;".to_string(),
+			Instruction::Nop     => "\tNOP;".to_string(),
+			Instruction::Outln   => "\tOUTLN;".to_string(),
+			Instruction::Pusharg => "\tPUSHARG;".to_string(),
+			Instruction::Pushret => "\tPUSHRET;".to_string(),
+			Instruction::Return  => "\tRETURN;".to_string(),
+			Instruction::Store   => "\tSTORE;".to_string(),
+			Instruction::Subcall => "\tSUBCALL;".to_string(),
 		}
 	}
 }
@@ -152,6 +160,10 @@ impl ToBytecode for ast::Statement {
 						let arg = Argument::from_literal(*literal);
 						ret.push(Instruction::Push(arg));
 					},
+					ast::Expression::Call(_ident, _args) => {
+						ret.extend(expr.to_bytecode());
+						ret.push(Instruction::Pushret);
+					}
 					_ => ret.extend(expr.to_bytecode()),
 				};
 
@@ -168,6 +180,10 @@ impl ToBytecode for ast::Statement {
 						let arg = Argument::from_literal(*literal);
 						ret.push(Instruction::Push(arg));
 					},
+					ast::Expression::Call(_ident, _args) => {
+						ret.extend(expr.to_bytecode());
+						ret.push(Instruction::Pushret);
+					}
 					_ => ret.extend(expr.to_bytecode()),
 				};
 
@@ -253,7 +269,31 @@ impl ToBytecode for ast::Expression {
 
 				let block_instrs: Vec<Instruction> = statement.to_bytecode();
 				ret.extend(block_instrs);
+
+				if ident.value == "main" {
+					ret.push(Instruction::Halt);
+				}
 			},
+			ast::Expression::Call(ident, args) => {
+				for arg in args {
+					match arg {
+						ast::Expression::Identifier(ref ident) => {
+							ret.push(Instruction::AddressOf(ident.value.clone()));
+							ret.push(Instruction::Load);
+							ret.push(Instruction::Pusharg);
+						},
+						ast::Expression::Literal(literal) => {
+							let arg = Argument::from_literal(*literal);
+							ret.push(Instruction::Push(arg));
+							ret.push(Instruction::Pusharg);
+						},
+						_ => {}
+					}
+
+					ret.push(Instruction::AddressOf(ident.value.clone()));
+					ret.push(Instruction::Subcall);
+				}
+			}
 			_ => {},
 		}
 
@@ -284,10 +324,9 @@ mod test {
 	}
 
 	#[test]
-	#[ignore]
 	fn test_function_call() {
 		let input = "square(5);";
-		let expected = "";
+		let expected = "\tPUSH 5;\n\tPUSHARG;\n\t&square;\n\tSUBCALL;\n";
 		let mut parser = Parser::new(input);
 
 		parser.parse();

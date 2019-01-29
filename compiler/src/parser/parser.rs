@@ -58,20 +58,9 @@ impl Precedence {
 	/// assert_eq!(precedence, Precedence::Equals);
 	/// ```
 	pub fn from_token_type(token_type: TokenType) -> Precedence {
-		match token_type {
-			TokenType::Equal
-			| TokenType::NotEqual => Precedence::Equals,
-
-			TokenType::LessThan
-			| TokenType::GreaterThan => Precedence::LessGreater,
-
-			TokenType::Plus
-			| TokenType::Minus => Precedence::Sum,
-
-			TokenType::Multiply
-			| TokenType::Divide  => Precedence::Product,
-
-			_ => panic!("Unable to convert TokenType to Precedence: {:?}", token_type),
+		match Precedence::from_token_type_safe(token_type) {
+			Ok(precedence) => precedence,
+			Err(_) => panic!("Unable to convert TokenType to Precedence: {:?}", token_type),
 		}
 	}
 
@@ -101,7 +90,9 @@ impl Precedence {
 			| TokenType::Minus => Ok(Precedence::Sum),
 
 			TokenType::Multiply
-			| TokenType::Divide  => Ok(Precedence::Product),
+			| TokenType::Divide => Ok(Precedence::Product),
+
+			TokenType::LeftParen => Ok(Precedence::Call),
 
 			// TODO: put a proper error in here
 			_ => Err(())
@@ -323,6 +314,7 @@ impl<'a> Parser<'a> {
 		let mut left = match token.token_type {
 			// TODO: move specific token types to be handled by parse_prefix_expression?
 			TokenType::Identifier => Ok(Expression::Identifier(Identifier::from_token(token))),
+
 			TokenType::Integer
 			| TokenType::Float
 			| TokenType::True
@@ -333,6 +325,8 @@ impl<'a> Parser<'a> {
 
 			TokenType::Function => self.parse_function_expression(),
 
+			TokenType::LeftParen => self.parse_grouped_expression(),
+
 			_ => {
 				println!("Unexpected token: {:?}", token);
 				Err(Error::new(ErrorCode::E0001, token.location))
@@ -340,23 +334,18 @@ impl<'a> Parser<'a> {
 		}?;
 
 		loop {
-			if self.peek_type_is(TokenType::Semicolon) {
-				break;
-			}
-
-			dbg!(precedence);
-			dbg!(self.peek_precedence());
-
-			if precedence < self.peek_precedence() {
+			if !self.peek_type_is(TokenType::Semicolon) && precedence < self.peek_precedence() {
 				let next_token = self.lexer.next().unwrap_or(Token::eof());
 
 				left = match next_token.token_type {
 					TokenType::LeftParen => self.parse_call_expression(left)?,
 					_ => self.parse_infix_expression(left, next_token)?,
 				};
-			} else {
-				break;
+
+				continue;
 			}
+
+			break;
 		}
 
 		Ok(left)
@@ -450,16 +439,14 @@ impl<'a> Parser<'a> {
 			self.lexer.next();
 		}
 
-		if !self.peek_type_is(TokenType::Arrow) {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			return Err(Error::new(ErrorCode::E0001, token.location));
-		} else {
+		let ret_type = if self.peek_type_is(TokenType::Arrow) {
 			self.lexer.next();
-		}
+			Some(self.parse_type()?)
+		} else {
+			None
+		};
 
-		let ret_type = self.parse_type()?;
 		let block = self.parse_block_statement()?;
-
 		Ok(Expression::Function(ident, params, ret_type, Box::new(block)))
 	}
 
@@ -504,6 +491,24 @@ impl<'a> Parser<'a> {
 	//
 	//
 	//
+	fn parse_grouped_expression(&mut self) -> Result<Expression, Error> {
+		let token = self.lexer.next().unwrap_or(Token::eof());
+		let expr = self.parse_expression(token, Precedence::Lowest)?;
+
+		if !self.peek_type_is(TokenType::RightParen) {
+			let token = self.lexer.next().unwrap_or(Token::eof());
+			return Err(Error::new(ErrorCode::E0001, token.location));
+		} else {
+			self.lexer.next();
+		}
+
+		Ok(expr)
+
+	}
+
+	//
+	//
+	//
 	fn parse_call_expression(&mut self, identifier: Expression) -> Result<Expression, Error> {
 		let mut args: Vec<Expression> = Vec::new();
 
@@ -526,7 +531,10 @@ impl<'a> Parser<'a> {
 			return Err(Error::from_token(ErrorCode::E0001, self.lexer.next()));
 		}
 
-		Ok(Expression::Call(Box::new(identifier), args))
+		match identifier {
+			Expression::Identifier(ident) => Ok(Expression::Call(ident, args)),
+			_ => panic!("Expected identifier, found: {:?}", identifier),
+		}
 	}
 }
 
@@ -555,6 +563,21 @@ mod test {
 	macro_rules! expr_literal_i32 {
 		($value:expr) => (
 			Expression::Literal(Literal::Int32($value))
+		)
+	}
+
+	//
+	//
+	//
+	macro_rules! param {
+		($ident:expr, $line:expr, $column:expr, $type_hint:expr) => (
+			Parameter::new(
+				Identifier::new(
+					$ident.to_string(),
+					Location::new($line, $column)
+				),
+				$type_hint
+			)
 		)
 	}
 
@@ -678,12 +701,57 @@ mod test {
 		}
 	}
 
+	// Test infix operator precedence with brackets
+	#[test]
+	fn test_precedence_grouped() {
+		let mut parser = Parser::new("(1 + 2) * 3;");
+		let expected = vec![
+			Statement::Expression(
+				Expression::Infix(
+					Box::new(Expression::Infix(
+						Box::new(expr_literal_i32!(1)),
+						Operator::Plus,
+						Box::new(expr_literal_i32!(2)),
+					)),
+					Operator::Multiply,
+					Box::new(expr_literal_i32!(3)),
+				),
+			),
+		];
+
+		parser.parse();
+
+		for (i, statement) in parser.module.statements.iter().enumerate() {
+			assert_eq!(statement, &expected[i]);
+		}
+	}
+
 	// Test functions are correctly matched
 	#[test]
 	fn test_function() {
 		let mut parser = Parser::new("fn square(n: i32) -> i32 { return n * n; }");
 		let expected = vec![
-			"fn square(n: i32) -> i32 {\nreturn (n * n);\n}"
+			Statement::Expression(
+				Expression::Function(
+					Identifier::new(
+						"square".to_string(),
+						Location::new(1, 4)
+					),
+					vec![param!("n", 1, 11, Type::Int32)],
+					Type::Int32,
+					Box::new(Statement::Block(Block {
+						statements: vec![
+							Statement::Return(
+								Expression::Infix(
+									Box::new(expr_ident!("n", 1, 35)),
+									Operator::Multiply,
+									Box::new(expr_ident!("n", 1, 39)),
+								)
+							)
+						]
+					}))
+				)
+			)
 		];
 
 		parser.parse();
@@ -691,7 +759,7 @@ mod test {
 		println!("errors: {}", parser.errors.len());
 
 		for (i, statement) in parser.module.statements.iter().enumerate() {
-			assert_eq!(format!("{}", statement), expected[i]);
+			assert_eq!(statement, &expected[i]);
 		}
 	}
 
@@ -700,14 +768,24 @@ mod test {
 	fn test_function_call() {
 		let mut parser = Parser::new("square(5);");
 		let expected = vec![
-			"square(5);\n",
+			Statement::Expression(
+				Expression::Call(
+					Identifier::new(
+						"square".to_string(),
+						Location::new(1, 1)
+					),
+					vec![
+						expr_literal_i32!(5)
+					]
+				)
+			)
 		];
 
 		parser.parse();
 		println!("errors: {}", parser.errors.len());
 
 		for (i, statement) in parser.module.statements.iter().enumerate() {
-			assert_eq!(format!("{}", statement), expected[i]);
+			assert_eq!(statement, &expected[i]);
 		}
 	}
 }

@@ -106,8 +106,8 @@ pub enum Expression {
 	Identifier(Identifier),
 	Prefix(Operator, Box<Expression>),
 	Infix(Box<Expression>, Operator, Box<Expression>),
-	Function(Identifier, Vec<Parameter>, Type, Box<Statement>),
-	Call(Box<Expression>, Vec<Expression>),
+	Function(Identifier, Vec<Parameter>, Option<Type>, Box<Statement>),
+	Call(Identifier, Vec<Expression>),
 }
 
 
@@ -119,11 +119,22 @@ impl fmt::Display for Expression {
 			Expression::Prefix(op, right)      => write!(f, "{}{}", op, right),
 			Expression::Infix(left, op, right) => write!(f, "({} {} {})", left, op, right),
 			Expression::Function(ident, params, ret_type, block) => {
-				write!(f, "fn {}({}) -> {} {}",
-					ident,
-					join(params, ", "),
-					ret_type,
-					block)
+				match ret_type {
+					Some(ret) => {
+						write!(f, "fn {}({}) -> {} {}",
+							ident,
+							join(params, ", "),
+							ret,
+							block)
+					},
+					None => {
+						write!(f, "fn {}({}) {}",
+							ident,
+							join(params, ", "),
+							block)
+					}
+				}
+
 			},
 			Expression::Call(ident, exprs) => {
 				write!(f, "{}({})",
