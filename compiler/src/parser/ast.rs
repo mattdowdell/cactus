@@ -7,6 +7,7 @@ extern crate itertools;
 use std::fmt;
 use itertools::join;
 use lexer::token::{Location, Token, TokenType};
+use parser::error::{Error, ErrorCode};
 
 
 /// A representation of a module in Cactus.
@@ -21,7 +22,7 @@ impl Module {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::parser::ast::Module;
+	/// use cactus::parser::ast::Module;
 	///
 	/// Module::new();
 	/// ```
@@ -35,14 +36,14 @@ impl Module {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::{Location, Token};
-	/// use compiler::parser::ast::{Module, Statement, Expression, Literal};
+	/// use cactus::lexer::token::{Location, Token};
+	/// use cactus::parser::ast::{Module, Statement, Expression, Literal};
 	///
 	/// let mut module = Module::new();
 	///
 	/// let location = Location::new(1, 0);
 	/// let token = Token::from_ident("true".to_string(), location);
-	/// let literal = Literal::from_token(token);
+	/// let literal = Literal::from_token(token).unwrap();
 	/// let expr = Expression::Literal(literal);
 	/// let statement = Statement::Return(expr);
 	///
@@ -78,7 +79,6 @@ pub type Block = Module;
 pub enum Statement {
 	Let(Identifier, Type, Expression),
 	Return(Expression),
-	Print(Expression),
 	Expression(Expression),
 	Block(Block),
 }
@@ -89,7 +89,6 @@ impl fmt::Display for Statement {
 		match self {
 			Statement::Let(ident, typehint, expr) => write!(f, "let {}: {} = {};", ident, typehint, expr),
 			Statement::Return(expr)               => write!(f, "return {};", expr),
-			Statement::Print(expr)                => write!(f, "print {};", expr),
 			Statement::Expression(expr)           => write!(f, "{}", expr),
 			Statement::Block(block)               => write!(f, "{{\n{}}}", block),
 		}
@@ -165,24 +164,25 @@ impl Literal {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::parser::ast::Literal;
-	/// use compiler::lexer::token::{Location, Token, TokenType};
+	/// use cactus::parser::ast::Literal;
+	/// use cactus::lexer::token::{Location, Token, TokenType};
 	///
 	/// let location = Location::new(5, 20);
 	/// let token = Token::new(TokenType::Integer, "10".to_string(), location);
 	/// let literal = Literal::from_token(token);
 	///
-	/// assert_eq!(literal, Literal::Int32(10));
+	/// assert!(literal.is_ok());
+	/// assert_eq!(literal.unwrap(), Literal::Int32(10));
 	/// ```
-	pub fn from_token(token: Token) -> Literal {
+	pub fn from_token(token: Token) -> Result<Literal, Error> {
 		match token.token_type {
-			TokenType::Integer => Literal::Int32(token.value.unwrap().parse::<i32>().unwrap()),
-			TokenType::Float   => Literal::Float(token.value.unwrap().parse::<f32>().unwrap()),
-			TokenType::True    => Literal::Boolean(true),
-			TokenType::False   => Literal::Boolean(false),
+			TokenType::Integer => Ok(Literal::Int32(token.value.unwrap().parse::<i32>().unwrap())),
+			TokenType::Float   => Ok(Literal::Float(token.value.unwrap().parse::<f32>().unwrap())),
+			TokenType::True    => Ok(Literal::Boolean(true)),
+			TokenType::False   => Ok(Literal::Boolean(false)),
 
 			// we shouldn't hit this, but just to be safe
-			_ => panic!("Unexpected token type: {:?}", token.token_type)
+			_ => Err(Error::from_token(ErrorCode::E0001, Some(token)))
 		}
 	}
 }
@@ -234,8 +234,8 @@ impl Identifier {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::Location;
-	/// use compiler::parser::ast::Identifier;
+	/// use cactus::lexer::token::Location;
+	/// use cactus::parser::ast::Identifier;
 	///
 	/// let location = Location::new(1, 0);
 	/// let ident = Identifier::new("foo".to_string(), location);
@@ -255,24 +255,26 @@ impl Identifier {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::{Location, Token};
-	/// use compiler::parser::ast::Identifier;
+	/// use cactus::lexer::token::{Location, Token};
+	/// use cactus::parser::ast::Identifier;
 	///
 	/// let location = Location::new(1, 0);
 	/// let token = Token::from_ident("foo".to_string(), location);
-	/// let ident = Identifier::from_token(token);
 	///
+	/// let ident = Identifier::from_token(token);
+	/// assert!(ident.is_ok());
+	///
+	/// let ident = ident.unwrap();
 	/// assert_eq!(ident.value, "foo");
 	/// assert_eq!(ident.location.line, 1);
 	/// assert_eq!(ident.location.column, 0);
 	/// ```
-	pub fn from_token(token: Token) -> Identifier {
+	pub fn from_token(token: Token) -> Result<Identifier, Error> {
 		if token.token_type != TokenType::Identifier {
-			panic!("Unexpected token type: {:?}, expected: Identifier (L{}:{})",
-				token.token_type, token.location.line, token.location.column);
+			Err(Error::from_token(ErrorCode::E0002, Some(token)))
+		} else {
+			Ok(Identifier::new(token.value.unwrap(), token.location))
 		}
-
-		Identifier::new(token.value.unwrap(), token.location)
 	}
 }
 
@@ -292,6 +294,7 @@ pub enum Operator {
 	// prefix operators
 	UnaryMinus,
 	Not,
+	BitCompl,
 
 	// infix operators
 	Plus,
@@ -308,22 +311,23 @@ impl Operator {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::{Location, Token, TokenType};
-	/// use compiler::parser::ast::Operator;
+	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::parser::ast::Operator;
 	///
 	/// let location = Location::new(1, 0);
 	/// let token = Token::from_type(TokenType::Minus, location);
 	/// let operator = Operator::from_prefix_token(token);
 	///
-	/// assert_eq!(operator, Operator::UnaryMinus);
+	/// assert!(operator.is_ok());
+	/// assert_eq!(operator.unwrap(), Operator::UnaryMinus);
 	/// ```
-	pub fn from_prefix_token(token: Token) -> Operator {
+	pub fn from_prefix_token(token: Token) -> Result<Operator, Error> {
 		match token.token_type {
-			TokenType::Minus => Operator::UnaryMinus,
-			TokenType::Bang  => Operator::Not,
+			TokenType::Minus    => Ok(Operator::UnaryMinus),
+			TokenType::Bang     => Ok(Operator::Not),
+			TokenType::BitCompl => Ok(Operator::BitCompl),
 
-			_ => panic!("Unexpected token for prefix operator: {} (L{}:{})",
-				token.token_type, token.location.line, token.location.column),
+			_ => Err(Error::from_token(ErrorCode::E0003, Some(token)))
 		}
 	}
 
@@ -333,24 +337,24 @@ impl Operator {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::{Location, Token, TokenType};
-	/// use compiler::parser::ast::Operator;
+	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::parser::ast::Operator;
 	///
 	/// let location = Location::new(1, 0);
 	/// let token = Token::from_type(TokenType::Minus, location);
 	/// let operator = Operator::from_infix_token(token);
 	///
-	/// assert_eq!(operator, Operator::Minus);
+	/// assert!(operator.is_ok());
+	/// assert_eq!(operator.unwrap(), Operator::Minus);
 	/// ```
-	pub fn from_infix_token(token: Token) -> Operator {
+	pub fn from_infix_token(token: Token) -> Result<Operator, Error> {
 		match token.token_type {
-			TokenType::Plus => Operator::Plus,
-			TokenType::Minus => Operator::Minus,
-			TokenType::Multiply => Operator::Multiply,
-			TokenType::Divide => Operator::Divide,
+			TokenType::Plus     => Ok(Operator::Plus),
+			TokenType::Minus    => Ok(Operator::Minus),
+			TokenType::Multiply => Ok(Operator::Multiply),
+			TokenType::Divide   => Ok(Operator::Divide),
 
-			_ => panic!("Unexpected token for infix operator: {} (L{}:{})",
-				token.token_type, token.location.line, token.location.column),
+			_ => Err(Error::from_token(ErrorCode::E0004, Some(token))),
 		}
 	}
 }
@@ -362,6 +366,7 @@ impl fmt::Display for Operator {
 			// prefix operators
 			Operator::UnaryMinus => write!(f, "-"),
 			Operator::Not        => write!(f, "!"),
+			Operator::BitCompl   => write!(f, "~"),
 
 			// infix operators
 			Operator::Plus     => write!(f, "+"),

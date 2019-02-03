@@ -1,7 +1,7 @@
 //!
 //!
 //!
-
+/*
 #[macro_use]
 extern crate clap;
 extern crate cactus;
@@ -106,3 +106,4 @@ fn save_to_file(filename: &str, content: &str) {
         Ok(_) => {},
     }
 }
+*/

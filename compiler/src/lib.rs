@@ -6,4 +6,4 @@ extern crate itertools;
 
 pub mod lexer;
 pub mod parser;
-pub mod code_gen;
+//pub mod code_gen;

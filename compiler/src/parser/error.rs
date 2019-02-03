@@ -2,28 +2,24 @@
 
 
 use std::fmt;
-use lexer::token::{Location, Token};
+use lexer::token::{Location, Token, TokenType};
 
 /// Codes that map to errors that can occur during parsing.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorCode {
+	E0000,
 	E0001,
+	E0002,
+	E0003,
+	E0004,
 }
 
-
-impl fmt::Display for ErrorCode {
-	// Convert error codes to human readable messages.
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			ErrorCode::E0001 => write!(f, "Unknown"),
-		}
-	}
-}
 
 /// A representation of an error and it's location.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Error {
 	pub location: Location,
+	pub token_type: Option<TokenType>,
 	pub code: ErrorCode,
 }
 
@@ -33,8 +29,8 @@ impl Error {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::Location;
-	/// use compiler::parser::error::{Error, ErrorCode};
+	/// use cactus::lexer::token::Location;
+	/// use cactus::parser::error::{Error, ErrorCode};
 	///
 	/// let location = Location::new(5, 20);
 	/// let error = Error::new(ErrorCode::E0001, location);
@@ -46,6 +42,7 @@ impl Error {
 	pub fn new(code: ErrorCode, location: Location) -> Error {
 		Error {
 			location: location,
+			token_type: None,
 			code: code,
 		}
 	}
@@ -57,11 +54,14 @@ impl Error {
 		if token.is_none() {
 			Error {
 				location: Location::end(),
+				token_type: None,
 				code: code,
 			}
 		} else {
+			let token = token.unwrap();
 			Error {
-				location: token.unwrap().location,
+				location: token.location,
+				token_type: Some(token.token_type),
 				code: code,
 			}
 		}
@@ -72,6 +72,14 @@ impl Error {
 impl fmt::Display for Error {
 	// Convert errors to human readable messages.
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "Error on L{}: {:?}: {}", self.location.line, self.code, self.code)
+		let reason = match self.code {
+			ErrorCode::E0000 => "Internal error: Unknown".to_string(),
+			ErrorCode::E0001 => format!("Internal error: Unable to convert {:?} to literal.", self.token_type),
+			ErrorCode::E0002 => format!("Internal error: Unable to convert {:?} to identifier.", self.token_type),
+			ErrorCode::E0003 => format!("Internal error: Unable to convert {:?} to prefix operator.", self.token_type),
+			ErrorCode::E0004 => format!("Internal error: Unable to convert {:?} to infix operator.", self.token_type),
+		};
+
+		write!(f, "Error on L{}: {:?}: {}", self.location.line, self.code, reason)
 	}
 }

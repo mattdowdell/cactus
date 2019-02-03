@@ -18,7 +18,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::Location;
+	/// use cactus::lexer::token::Location;
 	///
 	/// let location = Location::new(1, 1);
 	///
@@ -39,14 +39,14 @@ impl Location {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::Location;
+	/// use cactus::lexer::token::Location;
 	///
-	/// let location = Location::default();
+	/// let location = Location::start();
 	///
 	/// assert_eq!(location.line, 1);
 	/// assert_eq!(location.column, 0);
 	/// ```
-	pub fn default() -> Location {
+	pub fn start() -> Location {
 		Location {
 			line: 1,
 			column: 0,
@@ -57,7 +57,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::Location;
+	/// use cactus::lexer::token::Location;
 	///
 	/// let location = Location::end();
 	///
@@ -75,9 +75,9 @@ impl Location {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::Location;
+	/// use cactus::lexer::token::Location;
 	///
-	/// let mut location = Location::default();
+	/// let mut location = Location::start();
 	///
 	/// assert_eq!(location.line, 1);
 	/// assert_eq!(location.column, 0);
@@ -95,9 +95,9 @@ impl Location {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::Location;
+	/// use cactus::lexer::token::Location;
 	///
-	/// let mut location = Location::default();
+	/// let mut location = Location::start();
 	///
 	/// assert_eq!(location.line, 1);
 	/// assert_eq!(location.column, 0);
@@ -115,18 +115,6 @@ impl Location {
 
 
 /// A representation of a token type.
-///
-/// Can be grouped into the following categories:
-/// - Specials
-/// - Identifiers and Literals
-/// - Operators
-/// - Delimiters
-/// - Brackets
-/// - Keywords
-/// - Primitive Types
-///
-/// Specials, Identifiers and Literals usually have a value associated with them when stored in a
-/// `Token`.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TokenType {
 	// specials
@@ -146,6 +134,14 @@ pub enum TokenType {
 	Divide,
 	Bang,
 
+	// bitwise operators
+	BitAnd,
+	BitOr,
+	BitXor,
+	BitCompl,
+	BitLeftShift,
+	BitRightShift,
+
 	// comparisons
 	LessThan,
 	LessThanOrEqual,
@@ -153,7 +149,6 @@ pub enum TokenType {
 	GreaterThanOrEqual,
 	Equal,
 	NotEqual,
-
 
 	// delimiters
 	Semicolon,
@@ -173,7 +168,13 @@ pub enum TokenType {
 	Return,
 	True,
 	False,
-	Print,
+	And,
+	Or,
+	Not,
+	If,
+	Else,
+	While,
+	For,
 
 	// primitive types
 	TypeBool,
@@ -205,6 +206,14 @@ impl fmt::Display for TokenType {
 			TokenType::Divide   => write!(f, "/"),
 			TokenType::Bang     => write!(f, "!"),
 
+			// bitwise operators
+			TokenType::BitAnd        => write!(f, "&"),
+			TokenType::BitOr         => write!(f, "|"),
+			TokenType::BitXor        => write!(f, "^"),
+			TokenType::BitCompl      => write!(f, "~"),
+			TokenType::BitLeftShift  => write!(f, "<<"),
+			TokenType::BitRightShift => write!(f, ">>"),
+
 			// comparisons
 			TokenType::LessThan           => write!(f, "<"),
 			TokenType::LessThanOrEqual    => write!(f, "<="),
@@ -231,12 +240,18 @@ impl fmt::Display for TokenType {
 			TokenType::Return   => write!(f, "return"),
 			TokenType::True     => write!(f, "true"),
 			TokenType::False    => write!(f, "false"),
-			TokenType::Print    => write!(f, "print"),
+			TokenType::And      => write!(f, "and"),
+			TokenType::Or       => write!(f, "or"),
+			TokenType::Not      => write!(f, "not"),
+			TokenType::If       => write!(f, "if"),
+			TokenType::Else     => write!(f, "else"),
+			TokenType::While    => write!(f, "while"),
+			TokenType::For      => write!(f, "for"),
 
 			// primitive types
 			TokenType::TypeBool  => write!(f, "bool"),
 			TokenType::TypeInt32 => write!(f, "i32"),
-			TokenType::TypeFloat   => write!(f, "float"),
+			TokenType::TypeFloat => write!(f, "float"),
 		}
 	}
 }
@@ -267,7 +282,7 @@ impl Token {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::{Location, Token, TokenType};
+	/// use cactus::lexer::token::{Location, Token, TokenType};
 	///
 	/// let location = Location::new(1, 1);
 	/// let value = "10".to_string();
@@ -290,7 +305,7 @@ impl Token {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::{Location, Token, TokenType};
+	/// use cactus::lexer::token::{Location, Token, TokenType};
 	///
 	/// let location = Location::new(1, 1);
 	/// let token = Token::from_type(TokenType::Plus, location);
@@ -315,7 +330,7 @@ impl Token {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::{Location, Token, TokenType};
+	/// use cactus::lexer::token::{Location, Token, TokenType};
 	///
 	/// let location = Location::new(1, 1);
 	/// let value = "true".to_string();
@@ -334,7 +349,13 @@ impl Token {
 			"return" => TokenType::Return,
 			"true"   => TokenType::True,
 			"false"  => TokenType::False,
-			"print"  => TokenType::Print,
+			"and"    => TokenType::And,
+			"or"     => TokenType::Or,
+			"not"    => TokenType::Not,
+			"if"     => TokenType::If,
+			"else"   => TokenType::Else,
+			"while"  => TokenType::While,
+			"for"    => TokenType::For,
 
 			// primitive types
 			"bool" => TokenType::TypeBool,
@@ -364,7 +385,7 @@ impl Token {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::{Token, TokenType};
+	/// use cactus::lexer::token::{Token, TokenType};
 	///
 	/// let token = Token::eof();
 	///
@@ -426,51 +447,27 @@ mod test {
 	// Test that keywords are correctly matched.
 	#[test]
 	fn test_keywords() {
-		assert_eq!(
-			Token::from_ident("let".to_string(), LOCATION),
-			token!(TokenType::Let)
-		);
+		let pairs = vec![
+			("let", token!(TokenType::Let)),
+			("fn", token!(TokenType::Function)),
+			("return", token!(TokenType::Return)),
+			("true", token!(TokenType::True)),
+			("false", token!(TokenType::False)),
+			("and", token!(TokenType::And)),
+			("or", token!(TokenType::Or)),
+			("not", token!(TokenType::Not)),
+			("if", token!(TokenType::If)),
+			("else", token!(TokenType::Else)),
+			("while", token!(TokenType::While)),
+			("for", token!(TokenType::For)),
+			("bool", token!(TokenType::TypeBool)),
+			("i32", token!(TokenType::TypeInt32)),
+			("f32", token!(TokenType::TypeFloat)),
+		];
 
-		assert_eq!(
-			Token::from_ident("fn".to_string(), LOCATION),
-			token!(TokenType::Function)
-		);
-
-		assert_eq!(
-			Token::from_ident("return".to_string(), LOCATION),
-			token!(TokenType::Return)
-		);
-
-		assert_eq!(
-			Token::from_ident("true".to_string(), LOCATION),
-			token!(TokenType::True)
-		);
-
-		assert_eq!(
-			Token::from_ident("false".to_string(), LOCATION),
-			token!(TokenType::False)
-		);
-
-		assert_eq!(
-			Token::from_ident("print".to_string(), LOCATION),
-			token!(TokenType::Print)
-		);
-
-		assert_eq!(
-			Token::from_ident("bool".to_string(), LOCATION),
-			token!(TokenType::TypeBool)
-		);
-
-		assert_eq!(
-			Token::from_ident("i32".to_string(), LOCATION),
-			token!(TokenType::TypeInt32)
-		);
-
-		assert_eq!(
-			Token::from_ident("f32".to_string(), LOCATION),
-			token!(TokenType::TypeFloat)
-		);
-
+		for (input, expected) in pairs {
+			assert_eq!(Token::from_ident(input.to_string(), LOCATION), expected);
+		}
 	}
 
 	// Test that a non-keyword produces and identifier.

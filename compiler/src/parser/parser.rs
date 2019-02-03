@@ -50,8 +50,8 @@ impl Precedence {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::TokenType;
-	/// use compiler::parser::parser::Precedence;
+	/// use cactus::lexer::token::TokenType;
+	/// use cactus::parser::parser::Precedence;
 	///
 	/// let precedence = Precedence::from_token_type(TokenType::Equal);
 	///
@@ -68,8 +68,8 @@ impl Precedence {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::token::TokenType;
-	/// use compiler::parser::parser::Precedence;
+	/// use cactus::lexer::token::TokenType;
+	/// use cactus::parser::parser::Precedence;
 	///
 	/// let precedence = Precedence::from_token_type_safe(TokenType::Equal);
 	/// assert!(precedence.is_ok());
@@ -114,7 +114,7 @@ impl<'a> Parser<'a> {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::parser::parser::Parser;
+	/// use cactus::parser::parser::Parser;
 	///
 	/// Parser::new("let x: i32 = 5;");
 	/// ```
@@ -135,7 +135,7 @@ impl<'a> Parser<'a> {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::parser::parser::Parser;
+	/// use cactus::parser::parser::Parser;
 	///
 	/// let mut parser = Parser::new("let x: i32 = 5;");
 	///
@@ -183,7 +183,6 @@ impl<'a> Parser<'a> {
 		match token.token_type {
 			TokenType::Let => self.parse_let_statement(),
 			TokenType::Return => self.parse_return_statement(),
-			TokenType::Print => self.parse_print_statement(),
 			_ => self.parse_expression_statement(token),
 		}
 	}
@@ -245,23 +244,6 @@ impl<'a> Parser<'a> {
 		}
 
 		Ok(Statement::Return(expression))
-	}
-
-	// Parse a print statement.
-	//
-	// Should be in the form `print <expression>;`
-	fn parse_print_statement(&mut self) -> Result<Statement, Error> {
-		let token = self.lexer.next().unwrap_or(Token::eof());
-		let expression = self.parse_expression(token, Precedence::Lowest)?;
-
-		if !self.peek_type_is(TokenType::Semicolon) {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			return Err(Error::new(ErrorCode::E0001, token.location));
-		} else {
-			self.lexer.next();
-		}
-
-		Ok(Statement::Print(expression))
 	}
 
 	// Parse an expression as a statement,
@@ -738,7 +720,7 @@ mod test {
 						Location::new(1, 4)
 					),
 					vec![param!("n", 1, 11, Type::Int32)],
-					Type::Int32,
+					Some(Type::Int32),
 					Box::new(Statement::Block(Block {
 						statements: vec![
 							Statement::Return(

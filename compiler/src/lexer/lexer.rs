@@ -2,7 +2,7 @@
 //!
 //! # Usage
 //! ```
-//! use compiler::lexer::lexer::Lexer;
+//! use cactus::lexer::lexer::Lexer;
 //!
 //! let lexer = Lexer::new("let x: i32 = 1");
 //!
@@ -43,14 +43,14 @@ impl<'a> Lexer<'a> {
 	///
 	/// # Example
 	/// ```
-	/// use compiler::lexer::lexer::Lexer;
+	/// use cactus::lexer::lexer::Lexer;
 	///
 	/// Lexer::new("let x: i32 = 1;");
 	/// ```
 	pub fn new(input: &'a str) -> Lexer<'a> {
 		Lexer {
 			input: input.chars().peekable(),
-			location: Location::default(),
+			location: Location::start(),
 		}
 	}
 
@@ -205,9 +205,15 @@ impl<'a> Iterator for Lexer<'a> {
 						Some(Token::from_type(TokenType::Bang, location))
 					}
 				},
+				'&' => Some(Token::from_type(TokenType::BitAnd, location)),
+				'|' => Some(Token::from_type(TokenType::BitOr, location)),
+				'^' => Some(Token::from_type(TokenType::BitXor, location)),
+				'~' => Some(Token::from_type(TokenType::BitCompl, location)),
 				'<' => {
 					if self.peek_char_is('=', true) {
 						Some(Token::from_type(TokenType::LessThanOrEqual, location))
+					} else if self.peek_char_is('<', true) {
+						Some(Token::from_type(TokenType::BitLeftShift, location))
 					} else {
 						Some(Token::from_type(TokenType::LessThan, location))
 					}
@@ -215,12 +221,14 @@ impl<'a> Iterator for Lexer<'a> {
 				'>' => {
 					if self.peek_char_is('=', true) {
 						Some(Token::from_type(TokenType::GreaterThanOrEqual, location))
+					} else if self.peek_char_is('>', true) {
+						Some(Token::from_type(TokenType::BitRightShift, location))
 					} else {
 						Some(Token::from_type(TokenType::GreaterThan, location))
 					}
 				},
 
-				// delimiters
+				// delimiters (excluding arrow which is matched above)
 				';' => Some(Token::from_type(TokenType::Semicolon, location)),
 				':' => Some(Token::from_type(TokenType::Colon, location)),
 				',' => Some(Token::from_type(TokenType::Comma, location)),
@@ -279,10 +287,10 @@ mod test {
 	// Test illegal characters are correctly matched.
 	#[test]
 	fn test_illegal() {
-		let lexer = Lexer::new("@ ~");
+		let lexer = Lexer::new("@#");
 		let expected = vec![
 			token!(TokenType::Illegal, "@", location!(1)),
-			token!(TokenType::Illegal, "~", location!(3)),
+			token!(TokenType::Illegal, "#", location!(2)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -301,6 +309,24 @@ mod test {
 			token!(TokenType::Multiply, location!(4)),
 			token!(TokenType::Divide, location!(5)),
 			token!(TokenType::Bang, location!(6)),
+		];
+
+		for (i, token) in lexer.enumerate() {
+			assert_eq!(token, expected[i]);
+		}
+	}
+
+	// Test bitwise operators are correctly matched.
+	#[test]
+	fn test_bitwise_operators() {
+		let lexer = Lexer::new("&|^~<<>>");
+		let expected = vec![
+			token!(TokenType::BitAnd, location!(1)),
+			token!(TokenType::BitOr, location!(2)),
+			token!(TokenType::BitXor, location!(3)),
+			token!(TokenType::BitCompl, location!(4)),
+			token!(TokenType::BitLeftShift, location!(5)),
+			token!(TokenType::BitRightShift, location!(7)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -406,13 +432,20 @@ mod test {
 	// Test keywords are correctly matched.
 	#[test]
 	fn test_keywords() {
-		let lexer = Lexer::new("let fn return true false");
+		let lexer = Lexer::new("let fn return true false and or not if else while for");
 		let expected = vec![
 			token!(TokenType::Let, location!(1)),
 			token!(TokenType::Function, location!(5)),
 			token!(TokenType::Return, location!(8)),
 			token!(TokenType::True, location!(15)),
 			token!(TokenType::False, location!(20)),
+			token!(TokenType::And, location!(26)),
+			token!(TokenType::Or, location!(30)),
+			token!(TokenType::Not, location!(33)),
+			token!(TokenType::If, location!(37)),
+			token!(TokenType::Else, location!(40)),
+			token!(TokenType::While, location!(45)),
+			token!(TokenType::For, location!(51)),
 		];
 
 		for (i, token) in lexer.enumerate() {
