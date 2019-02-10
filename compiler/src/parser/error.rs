@@ -12,6 +12,22 @@ pub enum ErrorCode {
 	E0002,
 	E0003,
 	E0004,
+	E0005,
+	E0006,
+	E0007,
+	E0008,
+	E0009,
+	E0010,
+	E0011,
+	E0012,
+	E0013,
+	E0014,
+	E0015,
+	E0016,
+	E0017,
+	E0018,
+	E0019,
+	E0020
 }
 
 
@@ -73,11 +89,13 @@ impl fmt::Display for Error {
 	// Convert errors to human readable messages.
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let reason = match self.code {
-			ErrorCode::E0000 => "Internal error: Unknown".to_string(),
 			ErrorCode::E0001 => format!("Internal error: Unable to convert {:?} to literal.", self.token_type),
 			ErrorCode::E0002 => format!("Internal error: Unable to convert {:?} to identifier.", self.token_type),
 			ErrorCode::E0003 => format!("Internal error: Unable to convert {:?} to prefix operator.", self.token_type),
 			ErrorCode::E0004 => format!("Internal error: Unable to convert {:?} to infix operator.", self.token_type),
+			ErrorCode::E0005 => format!("Internal error: Unable to derive precedence of {:?}.", self.token_type),
+
+			_ => "Internal error: Unknown".to_string(),
 		};
 
 		write!(f, "Error on L{}: {:?}: {}", self.location.line, self.code, reason)

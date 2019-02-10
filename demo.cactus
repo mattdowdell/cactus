@@ -4,5 +4,5 @@ fn main() {
 }
 
 fn square(n: i32) -> i32 {
-	return n * n;
+	return n * n * n;
 }

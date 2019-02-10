@@ -26,6 +26,9 @@ use parser::{
 	error::{
 		Error,
 		ErrorCode
+	},
+	symbol::{
+		SymbolTable,
 	}
 };
 
@@ -44,42 +47,24 @@ pub enum Precedence {
 
 
 impl Precedence {
-	/// Convert a `TokenType` to a `Precedence`.
-	///
-	/// If the `TokenType` cannot be converted to a `Precedence` a panic will occur.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::token::TokenType;
-	/// use cactus::parser::parser::Precedence;
-	///
-	/// let precedence = Precedence::from_token_type(TokenType::Equal);
-	///
-	/// assert_eq!(precedence, Precedence::Equals);
-	/// ```
-	pub fn from_token_type(token_type: TokenType) -> Precedence {
-		match Precedence::from_token_type_safe(token_type) {
-			Ok(precedence) => precedence,
-			Err(_) => panic!("Unable to convert TokenType to Precedence: {:?}", token_type),
-		}
-	}
-
 	/// Try to convert a `TokenType` to a `Precedence`.
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::token::TokenType;
+	/// use cactus::lexer::token::{Location, Token, TokenType};
 	/// use cactus::parser::parser::Precedence;
 	///
-	/// let precedence = Precedence::from_token_type_safe(TokenType::Equal);
+	/// let token = Token::from_type(TokenType::Equal, Location::new(1, 0));
+	/// let precedence = Precedence::from_token(token);
 	/// assert!(precedence.is_ok());
 	/// assert_eq!(precedence.unwrap(), Precedence::Equals);
 	///
-	/// let precedence = Precedence::from_token_type_safe(TokenType::Illegal);
+	/// let token = Token::new(TokenType::Illegal, "@".to_string(), Location::new(1, 0));
+	/// let precedence = Precedence::from_token(token);
 	/// assert!(precedence.is_err());
 	/// ```
-	pub fn from_token_type_safe(token_type: TokenType) -> Result<Precedence, ()> {
-		match token_type {
+	pub fn from_token(token: Token) -> Result<Precedence, Error> {
+		match token.token_type {
 			TokenType::Equal
 			| TokenType::NotEqual => Ok(Precedence::Equals),
 
@@ -94,8 +79,7 @@ impl Precedence {
 
 			TokenType::LeftParen => Ok(Precedence::Call),
 
-			// TODO: put a proper error in here
-			_ => Err(())
+			_ => Err(Error::from_token(ErrorCode::E0005, Some(token))),
 		}
 	}
 }
@@ -106,6 +90,7 @@ pub struct Parser<'a> {
 	pub module: Module,
 	pub errors: Vec<Error>,
 	lexer: Peekable<Lexer<'a>>,
+	symbol_table: SymbolTable,
 }
 
 
@@ -123,6 +108,7 @@ impl<'a> Parser<'a> {
 			module: Module::new(),
 			errors: Vec::new(),
 			lexer: Lexer::new(input).peekable(),
+			symbol_table: SymbolTable::new(),
 		}
 	}
 
@@ -179,19 +165,19 @@ impl<'a> Parser<'a> {
 	//
 	//
 	//
+	fn peek_type_is(&mut self, token_type: TokenType) -> bool {
+		self.lexer.peek().is_some() && self.lexer.peek().unwrap().token_type == token_type
+	}
+
+	//
+	//
+	//
 	fn parse_statement(&mut self, token: Token) -> Result<Statement, Error> {
 		match token.token_type {
 			TokenType::Let => self.parse_let_statement(),
 			TokenType::Return => self.parse_return_statement(),
 			_ => self.parse_expression_statement(token),
 		}
-	}
-
-	//
-	//
-	//
-	fn peek_type_is(&mut self, token_type: TokenType) -> bool {
-		self.lexer.peek().is_some() && self.lexer.peek().unwrap().token_type == token_type
 	}
 
 	// Parse a let (assignment) statement.
@@ -246,6 +232,44 @@ impl<'a> Parser<'a> {
 		Ok(Statement::Return(expression))
 	}
 
+	//
+	//
+	//
+	fn parse_block_statement(&mut self) -> Result<Statement, Error> {
+		if !self.peek_type_is(TokenType::LeftBrace) {
+			let token = self.lexer.next().unwrap_or(Token::eof());
+			return Err(Error::new(ErrorCode::E0001, token.location));
+		} else {
+			self.lexer.next();
+		}
+
+		let mut block = Block::new();
+
+		loop {
+			if self.lexer.peek().is_none() {
+				break;
+			}
+
+			if self.peek_type_is(TokenType::RightBrace) {
+				break;
+			}
+
+			let token = self.lexer.next().unwrap();
+			let statement = self.parse_statement(token)?;
+
+			block.push(statement);
+		}
+
+		if !self.peek_type_is(TokenType::RightBrace) {
+			let token = self.lexer.next().unwrap_or(Token::eof());
+			return Err(Error::new(ErrorCode::E0001, token.location));
+		} else {
+			self.lexer.next();
+		}
+
+		Ok(Statement::Block(block))
+	}
+
 	// Parse an expression as a statement,
 	fn parse_expression_statement(&mut self, token: Token) -> Result<Statement, Error> {
 		let expression = self.parse_expression(token, Precedence::Lowest)?;
@@ -295,12 +319,12 @@ impl<'a> Parser<'a> {
 	fn parse_expression(&mut self, token: Token, precedence: Precedence) -> Result<Expression, Error> {
 		let mut left = match token.token_type {
 			// TODO: move specific token types to be handled by parse_prefix_expression?
-			TokenType::Identifier => Ok(Expression::Identifier(Identifier::from_token(token))),
+			TokenType::Identifier => Ok(Expression::Identifier(Identifier::from_token(token)?)),
 
 			TokenType::Integer
 			| TokenType::Float
 			| TokenType::True
-			| TokenType::False => Ok(Expression::Literal(Literal::from_token(token))),
+			| TokenType::False => Ok(Expression::Literal(Literal::from_token(token)?)),
 
 			TokenType::Bang
 			| TokenType::Minus => self.parse_prefix_expression(token),
@@ -336,8 +360,25 @@ impl<'a> Parser<'a> {
 	//
 	//
 	//
+	fn peek_precedence(&mut self) -> Precedence {
+		if self.lexer.peek().is_some() {
+			let peek = self.lexer.peek().unwrap();
+			let precedence = Precedence::from_token(peek.clone());
+
+			match precedence {
+				Ok(value) => value,
+				Err(_) => Precedence::Lowest,
+			}
+		} else {
+			Precedence::Lowest
+		}
+	}
+
+	//
+	//
+	//
 	fn parse_prefix_expression(&mut self, token: Token) -> Result<Expression, Error> {
-		let operator = Operator::from_prefix_token(token);
+		let operator = Operator::from_prefix_token(token)?;
 		let token = self.lexer.next().unwrap_or(Token::eof());
 		let right = self.parse_expression(token, Precedence::Prefix)?;
 
@@ -348,31 +389,14 @@ impl<'a> Parser<'a> {
 	//
 	//
 	fn parse_infix_expression(&mut self, left: Expression, token: Token) -> Result<Expression, Error> {
-		let operator = Operator::from_infix_token(token);
+		let operator = Operator::from_infix_token(token)?;
 
 		let token = self.lexer.next().unwrap_or(Token::eof());
-		let precedence = Precedence::from_token_type_safe(token.token_type).unwrap_or(Precedence::Lowest);
+		let precedence = Precedence::from_token(token.clone()).unwrap_or(Precedence::Lowest);
 
 		let right = self.parse_expression(token, precedence)?;
 
 		Ok(Expression::Infix(Box::new(left), operator, Box::new(right)))
-	}
-
-	//
-	//
-	//
-	fn peek_precedence(&mut self) -> Precedence {
-		if self.lexer.peek().is_some() {
-			let peek_type = self.lexer.peek().unwrap().token_type;
-			let precedence = Precedence::from_token_type_safe(peek_type);
-
-			match precedence {
-				Ok(value) => value,
-				Err(_) => Precedence::Lowest,
-			}
-		} else {
-			Precedence::Lowest
-		}
 	}
 
 	//
@@ -430,44 +454,6 @@ impl<'a> Parser<'a> {
 
 		let block = self.parse_block_statement()?;
 		Ok(Expression::Function(ident, params, ret_type, Box::new(block)))
-	}
-
-	//
-	//
-	//
-	fn parse_block_statement(&mut self) -> Result<Statement, Error> {
-		if !self.peek_type_is(TokenType::LeftBrace) {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			return Err(Error::new(ErrorCode::E0001, token.location));
-		} else {
-			self.lexer.next();
-		}
-
-		let mut block = Block::new();
-
-		loop {
-			if self.lexer.peek().is_none() {
-				break;
-			}
-
-			if self.peek_type_is(TokenType::RightBrace) {
-				break;
-			}
-
-			let token = self.lexer.next().unwrap();
-			let statement = self.parse_statement(token)?;
-
-			block.push(statement);
-		}
-
-		if !self.peek_type_is(TokenType::RightBrace) {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			return Err(Error::new(ErrorCode::E0001, token.location));
-		} else {
-			self.lexer.next();
-		}
-
-		Ok(Statement::Block(block))
 	}
 
 	//
@@ -544,7 +530,7 @@ mod test {
 	//
 	macro_rules! expr_literal_i32 {
 		($value:expr) => (
-			Expression::Literal(Literal::Int32($value))
+			Expression::Literal(Literal::Int32($value.to_string()))
 		)
 	}
 
@@ -580,7 +566,7 @@ mod test {
 		let mut parser = Parser::new("let x: i32 = 5;");
 		let expected = Statement::Let(Identifier::new("x".to_string(), Location::new(1, 5)),
 										Type::Int32,
-										Expression::Literal(Literal::Int32(5)));
+										Expression::Literal(Literal::Int32("5".to_string())));
 
 		parser.parse();
 
@@ -592,7 +578,7 @@ mod test {
 	fn test_return_statement() {
 		let mut parser = Parser::new("return 5; return x;");
 		let expected = vec![
-			Statement::Return(Expression::Literal(Literal::Int32(5))),
+			Statement::Return(Expression::Literal(Literal::Int32("5".to_string()))),
 			Statement::Return(Expression::Identifier(Identifier::new("x".to_string(), Location::new(1, 18)))),
 		];
 
@@ -614,7 +600,7 @@ mod test {
 			)),
 			Statement::Expression(Expression::Prefix(
 				Operator::UnaryMinus,
-				Box::new(Expression::Literal(Literal::Int32(5)))
+				Box::new(Expression::Literal(Literal::Int32("5".to_string())))
 			))
 		];
 
@@ -757,7 +743,7 @@ mod test {
 						Location::new(1, 1)
 					),
 					vec![
-						expr_literal_i32!(5)
+						expr_literal_i32!("5")
 					]
 				)
 			)

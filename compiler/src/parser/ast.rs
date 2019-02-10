@@ -148,10 +148,10 @@ impl fmt::Display for Expression {
 ///
 ///
 ///
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Literal {
-	Int32(i32),
-	Float(f32),
+	Int32(String),
+	Float(String),
 	Boolean(bool),
 }
 
@@ -172,12 +172,12 @@ impl Literal {
 	/// let literal = Literal::from_token(token);
 	///
 	/// assert!(literal.is_ok());
-	/// assert_eq!(literal.unwrap(), Literal::Int32(10));
+	/// assert_eq!(literal.unwrap(), Literal::Int32("10".to_string()));
 	/// ```
 	pub fn from_token(token: Token) -> Result<Literal, Error> {
 		match token.token_type {
-			TokenType::Integer => Ok(Literal::Int32(token.value.unwrap().parse::<i32>().unwrap())),
-			TokenType::Float   => Ok(Literal::Float(token.value.unwrap().parse::<f32>().unwrap())),
+			TokenType::Integer => Ok(Literal::Int32(token.value.unwrap())),
+			TokenType::Float   => Ok(Literal::Float(token.value.unwrap())),
 			TokenType::True    => Ok(Literal::Boolean(true)),
 			TokenType::False   => Ok(Literal::Boolean(false)),
 
@@ -405,5 +405,138 @@ impl Parameter {
 impl fmt::Display for Parameter {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}: {}", self.identifier, self.type_hint)
+	}
+}
+
+
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	const LOCATION: Location = Location {
+		line: 1,
+		column: 1,
+	};
+
+	// Helper macro for creating a new token.
+	macro_rules! token {
+		($tt:expr, $value:expr) => (
+			Token::new($tt, $value.to_string(), LOCATION);
+		);
+		($tt:expr) => (
+			Token::from_type($tt, LOCATION);
+		)
+	}
+
+	#[test]
+	fn test_literal_from_token() {
+		let data = vec![
+			(token!(TokenType::Integer, "10"), Literal::Int32("10".to_string())),
+			(token!(TokenType::Float, "10.0"), Literal::Float("10.0".to_string())),
+			(token!(TokenType::True), Literal::Boolean(true)),
+			(token!(TokenType::False), Literal::Boolean(false)),
+		];
+
+		for (input, expected) in data.iter() {
+			let literal = Literal::from_token(input.clone());
+
+			assert!(literal.is_ok());
+			assert_eq!(&literal.unwrap(), expected);
+		}
+	}
+
+	#[test]
+	fn test_literal_from_token_error() {
+		let data = vec![
+			token!(TokenType::Illegal),
+			token!(TokenType::Let),
+			token!(TokenType::Function),
+			token!(TokenType::Plus),
+		];
+
+		for input in data.iter() {
+			let literal = Literal::from_token(input.clone());
+			assert!(literal.is_err());
+
+			let error = literal.err().unwrap();
+			assert_eq!(error.code, ErrorCode::E0001);
+		}
+	}
+
+	#[test]
+	fn test_identifier_from_token() {
+		let token = token!(TokenType::Identifier, "foo");
+		let ident = Identifier::from_token(token);
+		let expected = Identifier::new("foo".to_string(), LOCATION);
+
+		assert!(ident.is_ok());
+		assert_eq!(ident.unwrap(), expected);
+	}
+
+	#[test]
+	fn test_identifier_from_token_error() {
+		let token = token!(TokenType::Function);
+		let ident = Identifier::from_token(token);
+
+		assert!(ident.is_err());
+
+		let error = ident.err().unwrap();
+		assert_eq!(error.code, ErrorCode::E0002);
+	}
+
+	#[test]
+	fn test_operator_from_prefix_token() {
+		let data = vec![
+			(token!(TokenType::Minus), Operator::UnaryMinus),
+			(token!(TokenType::Bang), Operator::Not),
+			(token!(TokenType::BitCompl), Operator::BitCompl),
+		];
+
+		for (input, expected) in data.iter() {
+			let operator = Operator::from_prefix_token(input.clone());
+
+			assert!(operator.is_ok());
+			assert_eq!(&operator.unwrap(), expected);
+		}
+	}
+
+	#[test]
+	fn test_operator_from_prefix_token_error() {
+		let token = token!(TokenType::Function);
+		let operator = Operator::from_prefix_token(token);
+
+		assert!(operator.is_err());
+
+		let error = operator.err().unwrap();
+		assert_eq!(error.code, ErrorCode::E0003);
+	}
+
+	#[test]
+	fn test_operator_from_infix_token() {
+		let data = vec![
+			(token!(TokenType::Plus), Operator::Plus),
+			(token!(TokenType::Minus), Operator::Minus),
+			(token!(TokenType::Multiply), Operator::Multiply),
+			(token!(TokenType::Divide), Operator::Divide),
+		];
+
+		for (input, expected) in data.iter() {
+			let operator = Operator::from_infix_token(input.clone());
+
+			assert!(operator.is_ok());
+			assert_eq!(&operator.unwrap(), expected);
+		}
+	}
+
+	#[test]
+	fn test_operator_from_infix_token_error() {
+		let token = token!(TokenType::Function);
+		let operator = Operator::from_infix_token(token);
+
+		assert!(operator.is_err());
+
+		let error = operator.err().unwrap();
+		assert_eq!(error.code, ErrorCode::E0004);
 	}
 }
