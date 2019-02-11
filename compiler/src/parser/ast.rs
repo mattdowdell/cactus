@@ -81,6 +81,7 @@ pub enum Statement {
 	Return(Expression),
 	Expression(Expression),
 	Block(Block),
+	Function(Identifier, Vec<Parameter>, Option<Type>, Block)
 }
 
 
@@ -91,6 +92,18 @@ impl fmt::Display for Statement {
 			Statement::Return(expr)               => write!(f, "return {};", expr),
 			Statement::Expression(expr)           => write!(f, "{}", expr),
 			Statement::Block(block)               => write!(f, "{{\n{}}}", block),
+			Statement::Function(ident, params, ret_type, block) => {
+				let mut ret = format!("fn {}({})", ident, join(params, ", "));
+
+				match ret_type {
+					Some(ret_type) => {
+						ret = format!("{} -> {}", ret, ret_type)
+					},
+					None => {}
+				};
+
+				write!(f, "{} {}", ret, block)
+			},
 		}
 	}
 }
@@ -105,7 +118,6 @@ pub enum Expression {
 	Identifier(Identifier),
 	Prefix(Operator, Box<Expression>),
 	Infix(Box<Expression>, Operator, Box<Expression>),
-	Function(Identifier, Vec<Parameter>, Option<Type>, Box<Statement>),
 	Call(Identifier, Vec<Expression>),
 }
 
@@ -117,24 +129,6 @@ impl fmt::Display for Expression {
 			Expression::Identifier(value)      => write!(f, "{}", value),
 			Expression::Prefix(op, right)      => write!(f, "{}{}", op, right),
 			Expression::Infix(left, op, right) => write!(f, "({} {} {})", left, op, right),
-			Expression::Function(ident, params, ret_type, block) => {
-				match ret_type {
-					Some(ret) => {
-						write!(f, "fn {}({}) -> {} {}",
-							ident,
-							join(params, ", "),
-							ret,
-							block)
-					},
-					None => {
-						write!(f, "fn {}({}) {}",
-							ident,
-							join(params, ", "),
-							block)
-					}
-				}
-
-			},
 			Expression::Call(ident, exprs) => {
 				write!(f, "{}({})",
 					ident,
@@ -207,6 +201,20 @@ pub enum Type {
 	Int32,
 	Float,
 	Bool,
+}
+
+
+impl Type {
+	///
+	///
+	///
+	pub fn size_of(&self) -> usize {
+		match self {
+			Type::Int32 => 4,
+			Type::Float => 4,
+			Type::Bool  => 1,
+		}
+	}
 }
 
 
@@ -427,6 +435,13 @@ mod test {
 		($tt:expr) => (
 			Token::from_type($tt, LOCATION);
 		)
+	}
+
+	#[test]
+	fn test_type_size_of() {
+		assert_eq!(Type::Int32.size_of(), 4);
+		assert_eq!(Type::Float.size_of(), 4);
+		assert_eq!(Type::Bool.size_of(), 1);
 	}
 
 	#[test]
