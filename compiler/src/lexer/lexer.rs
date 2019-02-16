@@ -188,32 +188,82 @@ impl<'a> Iterator for Lexer<'a> {
 						Some(Token::from_type(TokenType::Assign, location))
 					}
 				}
-				'+' => Some(Token::from_type(TokenType::Plus, location)),
+				'+' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::PlusAssign, location))
+					} else {
+						Some(Token::from_type(TokenType::Plus, location))
+					}
+				},
 				'-' => {
-					if self.peek_char_is('>', true) {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::MinusAssign, location))
+					} else if self.peek_char_is('>', true) {
 						Some(Token::from_type(TokenType::Arrow, location))
 					} else {
 						Some(Token::from_type(TokenType::Minus, location))
 					}
 				},
-				'*' => Some(Token::from_type(TokenType::Multiply, location)),
-				'/' => Some(Token::from_type(TokenType::Divide, location)),
+				'*' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::MultiplyAssign, location))
+					} else {
+						Some(Token::from_type(TokenType::Multiply, location))
+					}
+				},
+				'/' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::DivideAssign, location))
+					} else {
+						Some(Token::from_type(TokenType::Divide, location))
+					}
+				},
+				'%' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::ModuloAssign, location))
+					} else {
+						Some(Token::from_type(TokenType::Modulo, location))
+					}
+				},
 				'!' => {
 					if self.peek_char_is('=', true) {
 						Some(Token::from_type(TokenType::NotEqual, location))
 					} else {
-						Some(Token::from_type(TokenType::Bang, location))
+						let value = c.to_string();
+						Some(Token::new(TokenType::Illegal, value, location))
 					}
 				},
-				'&' => Some(Token::from_type(TokenType::BitAnd, location)),
-				'|' => Some(Token::from_type(TokenType::BitOr, location)),
-				'^' => Some(Token::from_type(TokenType::BitXor, location)),
+				'&' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::BitAndAssign, location))
+					} else {
+						Some(Token::from_type(TokenType::BitAnd, location))
+					}
+				},
+				'|' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::BitOrAssign, location))
+					} else {
+						Some(Token::from_type(TokenType::BitOr, location))
+					}
+				},
+				'^' => {
+					if self.peek_char_is('=', true) {
+						Some(Token::from_type(TokenType::BitXorAssign, location))
+					} else {
+						Some(Token::from_type(TokenType::BitXor, location))
+					}
+				},
 				'~' => Some(Token::from_type(TokenType::BitCompl, location)),
 				'<' => {
 					if self.peek_char_is('=', true) {
 						Some(Token::from_type(TokenType::LessThanOrEqual, location))
 					} else if self.peek_char_is('<', true) {
-						Some(Token::from_type(TokenType::BitLeftShift, location))
+						if self.peek_char_is('=', true) {
+							Some(Token::from_type(TokenType::BitLeftShiftAssign, location))
+						} else {
+							Some(Token::from_type(TokenType::BitLeftShift, location))
+						}
 					} else {
 						Some(Token::from_type(TokenType::LessThan, location))
 					}
@@ -222,7 +272,11 @@ impl<'a> Iterator for Lexer<'a> {
 					if self.peek_char_is('=', true) {
 						Some(Token::from_type(TokenType::GreaterThanOrEqual, location))
 					} else if self.peek_char_is('>', true) {
-						Some(Token::from_type(TokenType::BitRightShift, location))
+						if self.peek_char_is('=', true) {
+							Some(Token::from_type(TokenType::BitRightShiftAssign, location))
+						} else {
+							Some(Token::from_type(TokenType::BitRightShift, location))
+						}
 					} else {
 						Some(Token::from_type(TokenType::GreaterThan, location))
 					}
@@ -230,7 +284,13 @@ impl<'a> Iterator for Lexer<'a> {
 
 				// delimiters (excluding arrow which is matched above)
 				';' => Some(Token::from_type(TokenType::Semicolon, location)),
-				':' => Some(Token::from_type(TokenType::Colon, location)),
+				':' => {
+					if self.peek_char_is(':', true) {
+						Some(Token::from_type(TokenType::ImportJoin, location))
+					} else {
+						Some(Token::from_type(TokenType::Colon, location))
+					}
+				},
 				',' => Some(Token::from_type(TokenType::Comma, location)),
 
 				// brackets
@@ -300,15 +360,14 @@ mod test {
 
 	// Test operators are correctly matched.
 	#[test]
-	fn test_operators() {
-		let lexer = Lexer::new("=+-*/!");
+	fn test_basic_operators() {
+		let lexer = Lexer::new("+ - * / %");
 		let expected = vec![
-			token!(TokenType::Assign, location!(1)),
-			token!(TokenType::Plus, location!(2)),
+			token!(TokenType::Plus, location!(1)),
 			token!(TokenType::Minus, location!(3)),
-			token!(TokenType::Multiply, location!(4)),
-			token!(TokenType::Divide, location!(5)),
-			token!(TokenType::Bang, location!(6)),
+			token!(TokenType::Multiply, location!(5)),
+			token!(TokenType::Divide, location!(7)),
+			token!(TokenType::Modulo, location!(9)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -319,14 +378,14 @@ mod test {
 	// Test bitwise operators are correctly matched.
 	#[test]
 	fn test_bitwise_operators() {
-		let lexer = Lexer::new("&|^~<<>>");
+		let lexer = Lexer::new("& | ^ ~ << >>");
 		let expected = vec![
 			token!(TokenType::BitAnd, location!(1)),
-			token!(TokenType::BitOr, location!(2)),
-			token!(TokenType::BitXor, location!(3)),
-			token!(TokenType::BitCompl, location!(4)),
-			token!(TokenType::BitLeftShift, location!(5)),
-			token!(TokenType::BitRightShift, location!(7)),
+			token!(TokenType::BitOr, location!(3)),
+			token!(TokenType::BitXor, location!(5)),
+			token!(TokenType::BitCompl, location!(7)),
+			token!(TokenType::BitLeftShift, location!(9)),
+			token!(TokenType::BitRightShift, location!(12)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -334,9 +393,32 @@ mod test {
 		}
 	}
 
-	// Test comparisons are correctly matched.
+	// Test assignment operators are correctly matched.
 	#[test]
-	fn test_comparisons() {
+	fn test_assignment_operators() {
+		let lexer = Lexer::new("= += -= *= /= %= &= |= ^= <<= >>=");
+		let expected = vec![
+			token!(TokenType::Assign, location!(1)),
+			token!(TokenType::PlusAssign, location!(3)),
+			token!(TokenType::MinusAssign, location!(6)),
+			token!(TokenType::MultiplyAssign, location!(9)),
+			token!(TokenType::DivideAssign, location!(12)),
+			token!(TokenType::ModuloAssign, location!(15)),
+			token!(TokenType::BitAndAssign, location!(18)),
+			token!(TokenType::BitOrAssign, location!(21)),
+			token!(TokenType::BitXorAssign, location!(24)),
+			token!(TokenType::BitLeftShiftAssign, location!(27)),
+			token!(TokenType::BitRightShiftAssign, location!(31)),
+		];
+
+		for (i, token) in lexer.enumerate() {
+			assert_eq!(token, expected[i]);
+		}
+	}
+
+	// Test boolean operators are correctly matched.
+	#[test]
+	fn test_boolean_operators() {
 		let lexer = Lexer::new("< > <= >= == !=");
 		let expected = vec![
 			token!(TokenType::LessThan, location!(1)),
@@ -355,12 +437,13 @@ mod test {
 	// Test delimiters are correctly matched.
 	#[test]
 	fn test_delimiters() {
-		let lexer = Lexer::new(";:,->");
+		let lexer = Lexer::new("; : , -> ::");
 		let expected = vec![
 			token!(TokenType::Semicolon, location!(1)),
-			token!(TokenType::Colon, location!(2)),
-			token!(TokenType::Comma, location!(3)),
-			token!(TokenType::Arrow, location!(4)),
+			token!(TokenType::Colon, location!(3)),
+			token!(TokenType::Comma, location!(5)),
+			token!(TokenType::Arrow, location!(7)),
+			token!(TokenType::ImportJoin, location!(10)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -432,20 +515,23 @@ mod test {
 	// Test keywords are correctly matched.
 	#[test]
 	fn test_keywords() {
-		let lexer = Lexer::new("let fn return true false and or not if else while for");
+		let lexer = Lexer::new("let fn return struct enum import true false and or not if elif else loop");
 		let expected = vec![
 			token!(TokenType::Let, location!(1)),
 			token!(TokenType::Function, location!(5)),
 			token!(TokenType::Return, location!(8)),
-			token!(TokenType::True, location!(15)),
-			token!(TokenType::False, location!(20)),
-			token!(TokenType::And, location!(26)),
-			token!(TokenType::Or, location!(30)),
-			token!(TokenType::Not, location!(33)),
-			token!(TokenType::If, location!(37)),
-			token!(TokenType::Else, location!(40)),
-			token!(TokenType::While, location!(45)),
-			token!(TokenType::For, location!(51)),
+			token!(TokenType::Struct, location!(15)),
+			token!(TokenType::Enum, location!(22)),
+			token!(TokenType::Import, location!(27)),
+			token!(TokenType::True, location!(34)),
+			token!(TokenType::False, location!(39)),
+			token!(TokenType::And, location!(45)),
+			token!(TokenType::Or, location!(49)),
+			token!(TokenType::Not, location!(52)),
+			token!(TokenType::If, location!(56)),
+			token!(TokenType::Elif, location!(59)),
+			token!(TokenType::Else, location!(64)),
+			token!(TokenType::Loop, location!(69)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -456,11 +542,12 @@ mod test {
 	// Test primitive types are correctly matched.
 	#[test]
 	fn test_primitive_types() {
-		let lexer = Lexer::new("bool i32 f32");
+		let lexer = Lexer::new("bool i32 u32 f32");
 		let expected = vec![
 			token!(TokenType::TypeBool, location!(1)),
 			token!(TokenType::TypeInt32, location!(6)),
-			token!(TokenType::TypeFloat, location!(10)),
+			token!(TokenType::TypeUint32, location!(10)),
+			token!(TokenType::TypeFloat, location!(14)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -485,14 +572,208 @@ mod test {
 	// Test that prefix expressions are correctly broken into tokens
 	#[test]
 	fn test_prefix_expressions() {
-		let lexer = Lexer::new("!x; -5;");
+		let lexer = Lexer::new("not x; -5; ~5;");
 		let expected = vec![
-			token!(TokenType::Bang, location!(1)),
-			token!(TokenType::Identifier, "x", location!(2)),
-			token!(TokenType::Semicolon, location!(3)),
-			token!(TokenType::Minus, location!(5)),
-			token!(TokenType::Integer, "5", location!(6)),
+			token!(TokenType::Not, location!(1)),
+			token!(TokenType::Identifier, "x", location!(5)),
+			token!(TokenType::Semicolon, location!(6)),
+			token!(TokenType::Minus, location!(8)),
+			token!(TokenType::Integer, "5", location!(9)),
+			token!(TokenType::Semicolon, location!(10)),
+			token!(TokenType::BitCompl, location!(12)),
+			token!(TokenType::Integer, "5", location!(13)),
+			token!(TokenType::Semicolon, location!(14)),
+		];
+
+		for (i, token) in lexer.enumerate() {
+			assert_eq!(token, expected[i]);
+		}
+	}
+
+	// Test that infix expressions with basic operators are correctly broken into tokens
+	#[test]
+	fn test_basic_infix_expressions() {
+		let lexer = Lexer::new("1 + 2; 1 - 2; 1 * 2; 1 / 2; 1 % 2;");
+		let expected = vec![
+			token!(TokenType::Integer, "1", location!(1)),
+			token!(TokenType::Plus, location!(3)),
+			token!(TokenType::Integer, "2", location!(5)),
+			token!(TokenType::Semicolon, location!(6)),
+
+			token!(TokenType::Integer, "1", location!(8)),
+			token!(TokenType::Minus, location!(10)),
+			token!(TokenType::Integer, "2", location!(12)),
+			token!(TokenType::Semicolon, location!(13)),
+
+			token!(TokenType::Integer, "1", location!(15)),
+			token!(TokenType::Multiply, location!(17)),
+			token!(TokenType::Integer, "2", location!(19)),
+			token!(TokenType::Semicolon, location!(20)),
+
+			token!(TokenType::Integer, "1", location!(22)),
+			token!(TokenType::Divide, location!(24)),
+			token!(TokenType::Integer, "2", location!(26)),
+			token!(TokenType::Semicolon, location!(27)),
+
+			token!(TokenType::Integer, "1", location!(29)),
+			token!(TokenType::Modulo, location!(31)),
+			token!(TokenType::Integer, "2", location!(33)),
+			token!(TokenType::Semicolon, location!(34)),
+
+		];
+
+		for (i, token) in lexer.enumerate() {
+			assert_eq!(token, expected[i]);
+		}
+	}
+
+	// Test that infix expressions with bitwise operators are correctly broken into tokens
+	#[test]
+	fn test_bitwise_infix_expressions() {
+		let lexer = Lexer::new("1 & 2; 1 | 2; 1 ^ 2; 1 << 2; 1 >> 2;");
+		let expected = vec![
+			token!(TokenType::Integer, "1", location!(1)),
+			token!(TokenType::BitAnd, location!(3)),
+			token!(TokenType::Integer, "2", location!(5)),
+			token!(TokenType::Semicolon, location!(6)),
+
+			token!(TokenType::Integer, "1", location!(8)),
+			token!(TokenType::BitOr, location!(10)),
+			token!(TokenType::Integer, "2", location!(12)),
+			token!(TokenType::Semicolon, location!(13)),
+
+			token!(TokenType::Integer, "1", location!(15)),
+			token!(TokenType::BitXor, location!(17)),
+			token!(TokenType::Integer, "2", location!(19)),
+			token!(TokenType::Semicolon, location!(20)),
+
+			token!(TokenType::Integer, "1", location!(22)),
+			token!(TokenType::BitLeftShift, location!(24)),
+			token!(TokenType::Integer, "2", location!(27)),
+			token!(TokenType::Semicolon, location!(28)),
+
+			token!(TokenType::Integer, "1", location!(30)),
+			token!(TokenType::BitRightShift, location!(32)),
+			token!(TokenType::Integer, "2", location!(35)),
+			token!(TokenType::Semicolon, location!(36)),
+
+		];
+
+		for (i, token) in lexer.enumerate() {
+			assert_eq!(token, expected[i]);
+		}
+	}
+
+	// Test that infix expressions with boolean operators are correctly broken into tokens
+	#[test]
+	fn test_boolean_infix_expressions() {
+		let lexer = Lexer::new("1 == 2; 1 != 2; 1 < 2; 1 <= 2; 1 > 2; 1 >= 2; 1 and 2; 1 or 2;");
+		let expected = vec![
+			token!(TokenType::Integer, "1", location!(1)),
+			token!(TokenType::Equal, location!(3)),
+			token!(TokenType::Integer, "2", location!(6)),
 			token!(TokenType::Semicolon, location!(7)),
+
+			token!(TokenType::Integer, "1", location!(9)),
+			token!(TokenType::NotEqual, location!(11)),
+			token!(TokenType::Integer, "2", location!(14)),
+			token!(TokenType::Semicolon, location!(15)),
+
+			token!(TokenType::Integer, "1", location!(17)),
+			token!(TokenType::LessThan, location!(19)),
+			token!(TokenType::Integer, "2", location!(21)),
+			token!(TokenType::Semicolon, location!(22)),
+
+			token!(TokenType::Integer, "1", location!(24)),
+			token!(TokenType::LessThanOrEqual, location!(26)),
+			token!(TokenType::Integer, "2", location!(29)),
+			token!(TokenType::Semicolon, location!(30)),
+
+			token!(TokenType::Integer, "1", location!(32)),
+			token!(TokenType::GreaterThan, location!(34)),
+			token!(TokenType::Integer, "2", location!(36)),
+			token!(TokenType::Semicolon, location!(37)),
+
+			token!(TokenType::Integer, "1", location!(39)),
+			token!(TokenType::GreaterThanOrEqual, location!(41)),
+			token!(TokenType::Integer, "2", location!(44)),
+			token!(TokenType::Semicolon, location!(45)),
+
+			token!(TokenType::Integer, "1", location!(47)),
+			token!(TokenType::And, location!(49)),
+			token!(TokenType::Integer, "2", location!(53)),
+			token!(TokenType::Semicolon, location!(54)),
+
+			token!(TokenType::Integer, "1", location!(56)),
+			token!(TokenType::Or, location!(58)),
+			token!(TokenType::Integer, "2", location!(61)),
+			token!(TokenType::Semicolon, location!(62)),
+
+		];
+
+		for (i, token) in lexer.enumerate() {
+			assert_eq!(token, expected[i]);
+		}
+	}
+
+	#[test]
+	fn test_assignment_statement() {
+		let lexer = Lexer::new("x = 2; x += 2; x -= 2; x *= 2; x /= 2; x %= 2; x &= 2; x |= 2; x ^= 2; x <<= 2; x >>= 2;");
+		let expected = vec![
+			token!(TokenType::Identifier, "x", location!(1)),
+			token!(TokenType::Assign, location!(3)),
+			token!(TokenType::Integer, "2", location!(5)),
+			token!(TokenType::Semicolon, location!(6)),
+
+			token!(TokenType::Identifier, "x", location!(8)),
+			token!(TokenType::PlusAssign, location!(10)),
+			token!(TokenType::Integer, "2", location!(13)),
+			token!(TokenType::Semicolon, location!(14)),
+
+			token!(TokenType::Identifier, "x", location!(16)),
+			token!(TokenType::MinusAssign, location!(18)),
+			token!(TokenType::Integer, "2", location!(21)),
+			token!(TokenType::Semicolon, location!(22)),
+
+			token!(TokenType::Identifier, "x", location!(24)),
+			token!(TokenType::MultiplyAssign, location!(26)),
+			token!(TokenType::Integer, "2", location!(29)),
+			token!(TokenType::Semicolon, location!(30)),
+
+			token!(TokenType::Identifier, "x", location!(32)),
+			token!(TokenType::DivideAssign, location!(34)),
+			token!(TokenType::Integer, "2", location!(37)),
+			token!(TokenType::Semicolon, location!(38)),
+
+			token!(TokenType::Identifier, "x", location!(40)),
+			token!(TokenType::ModuloAssign, location!(42)),
+			token!(TokenType::Integer, "2", location!(45)),
+			token!(TokenType::Semicolon, location!(46)),
+
+			token!(TokenType::Identifier, "x", location!(48)),
+			token!(TokenType::BitAndAssign, location!(50)),
+			token!(TokenType::Integer, "2", location!(53)),
+			token!(TokenType::Semicolon, location!(54)),
+
+			token!(TokenType::Identifier, "x", location!(56)),
+			token!(TokenType::BitOrAssign, location!(58)),
+			token!(TokenType::Integer, "2", location!(61)),
+			token!(TokenType::Semicolon, location!(62)),
+
+			token!(TokenType::Identifier, "x", location!(64)),
+			token!(TokenType::BitXorAssign, location!(66)),
+			token!(TokenType::Integer, "2", location!(69)),
+			token!(TokenType::Semicolon, location!(70)),
+
+			token!(TokenType::Identifier, "x", location!(72)),
+			token!(TokenType::BitLeftShiftAssign, location!(74)),
+			token!(TokenType::Integer, "2", location!(78)),
+			token!(TokenType::Semicolon, location!(79)),
+
+			token!(TokenType::Identifier, "x", location!(81)),
+			token!(TokenType::BitRightShiftAssign, location!(83)),
+			token!(TokenType::Integer, "2", location!(87)),
+			token!(TokenType::Semicolon, location!(88)),
 		];
 
 		for (i, token) in lexer.enumerate() {

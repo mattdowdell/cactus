@@ -2,18 +2,41 @@
 //!
 //!
 
-extern crate itertools;
+//extern crate itertools;
 
-use std::fmt;
-use itertools::join;
-use lexer::token::{Location, Token, TokenType};
-use parser::error::{Error, ErrorCode};
+//use std::collections::HashMap;
+//use std::fmt;
+//use itertools::join;
+use lexer::token::{Token, TokenType};
+//use parser::error::{Error, ErrorCode};
+
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Ast {
+	pub modules: Vec<Module>,
+}
+
+impl Ast {
+	pub fn new() -> Ast {
+		Ast {
+			modules: Vec::new(),
+		}
+	}
+}
 
 
 /// A representation of a module in Cactus.
+///
+/// Modules are made up of 4 types of definition:
+/// - Imports
+/// - Structures
+/// - Enumerations
+/// - Functions
+///
+/// Imports are simply structures, enumerations and functions in another module.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Module {
-	pub statements: Vec<Statement>,
+	pub definitions: Vec<Definition>,
 }
 
 
@@ -28,49 +51,201 @@ impl Module {
 	/// ```
 	pub fn new() -> Module {
 		Module {
+			definitions: Vec::new(),
+		}
+	}
+
+	/// Add a definition to the module.
+	///
+	/// # Example
+	/// ```
+	/// use cactus::parser::ast::{Module, Definition, Identifier};
+	///
+	/// let ident = Identifier::new("example".to_string());
+	/// let field = Identifier::new("x".to_string());
+	/// let def = Definition::Enum(ident, vec![field]);
+	/// let mut module = Module::new();
+	///
+	/// module.push(def);
+	/// ```
+	pub fn push(&mut self, definition: Definition) {
+		self.definitions.push(definition);
+	}
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub enum Definition {
+	Import(Identifier),
+	Struct(Identifier, Vec<Parameter>),
+	Enum(Identifier, Vec<Identifier>),
+	Function(Identifier, Vec<Parameter>, Option<Type>, Block),
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct Identifier {
+	name: String,
+	address: usize,
+	path: Vec<Identifier>,
+}
+
+impl Identifier {
+	/// Create a new identifier.
+	///
+	/// # Example
+	/// ```
+	/// use cactus::parser::ast::Identifier;
+	///
+	/// Identifier::new("example".to_string());
+	/// ```
+	pub fn new(name: String) -> Identifier {
+		Identifier {
+			name: name,
+			address: 0,
+			path: Vec::new(),
+		}
+	}
+
+	/// Set the import path for an identifier.
+	///
+	/// An identifier with an import path indicates that it has been imported from another
+	/// module and is thus defined somewhere else.
+	///
+	/// # Example
+	/// ```
+	/// use cactus::parser::ast::Identifier;
+	///
+	/// let module_name = Identifier::new("std".to_string());
+	/// let import_path = vec![module_name];
+	/// let mut ident = Identifier::new("example".to_string());
+	///
+	/// ident.set_path(import_path);
+	/// ```
+	pub fn set_path(&mut self, path: Vec<Identifier>) {
+		self.path = path;
+	}
+
+	/// Test if the identifier is local by checking if it has an import path set.
+	///
+	/// ```
+	/// use cactus::parser::ast::Identifier;
+	///
+	/// let module_name = Identifier::new("std".to_string());
+	/// let import_path = vec![module_name];
+	///
+	/// let mut ident = Identifier::new("example".to_string());
+	/// assert!(ident.is_local());
+	///
+	/// ident.set_path(import_path);
+	/// assert!(!ident.is_local());
+	/// ```
+	pub fn is_local(&self) -> bool {
+		self.path.len() == 0
+	}
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct Parameter {
+	identifier: Identifier,
+	type_hint: Type,
+}
+
+impl Parameter {
+	///
+	///
+	///
+	pub fn new(identifier: Identifier, type_hint: Type) -> Parameter {
+		Parameter {
+			identifier: identifier,
+			type_hint: type_hint,
+		}
+	}
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub enum Type {
+	// primitive types
+	Int32,
+	Uint32,
+	Float,
+	Bool,
+
+	// other types
+	Custom(Identifier),
+}
+
+impl Type {
+	///
+	///
+	///
+	pub fn from_token(token: Token) -> Result<Type, String> {
+		match token.token_type {
+			TokenType::TypeInt32  => Ok(Type::Int32),
+			TokenType::TypeUint32 => Ok(Type::Uint32),
+			TokenType::TypeFloat  => Ok(Type::Float),
+			TokenType::TypeBool   => Ok(Type::Bool),
+
+			_ => Err(format!(
+				"Unexpected token type: {:?}. Expected one of: i32, u32, f32 or bool.",
+				token.token_type,
+			))
+		}
+	}
+
+	///
+	///
+	///
+	pub fn from_identifier(identifier: Identifier) -> Type {
+		Type::Custom(identifier)
+	}
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct Block {
+	statements: Vec<Statement>,
+}
+
+impl Block {
+	///
+	///
+	///
+	pub fn new() -> Block {
+		Block {
 			statements: Vec::new(),
 		}
 	}
 
-	/// Add a statement to a module.
+	/// Add a statement to the block.
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::token::{Location, Token};
-	/// use cactus::parser::ast::{Module, Statement, Expression, Literal};
+	/// use cactus::parser::ast::{Block, Statement, Expression, Identifier};
 	///
-	/// let mut module = Module::new();
+	/// let ident = Identifier::new("example".to_string());
+	/// let expr = Expression::Identifier(ident);
+	/// let stmt = Statement::Return(expr);
+	/// let mut block = Block::new();
 	///
-	/// let location = Location::new(1, 0);
-	/// let token = Token::from_ident("true".to_string(), location);
-	/// let literal = Literal::from_token(token).unwrap();
-	/// let expr = Expression::Literal(literal);
-	/// let statement = Statement::Return(expr);
-	///
-	/// module.push(statement);
-	///
-	/// assert_eq!(module.statements.len(), 1);
+	/// block.push(stmt);
 	/// ```
 	pub fn push(&mut self, statement: Statement) {
 		self.statements.push(statement);
 	}
 }
-
-
-impl fmt::Display for Module {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		let mut ret = String::new();
-
-		for statement in &self.statements {
-			ret = format!("{}{}\n", ret, statement);
-		}
-
-		write!(f, "{}", ret)
-	}
-}
-
-pub type Block = Module;
-
 
 ///
 ///
@@ -80,11 +255,391 @@ pub enum Statement {
 	Let(Identifier, Type, Expression),
 	Return(Expression),
 	Expression(Expression),
-	Block(Block),
-	Function(Identifier, Vec<Parameter>, Option<Type>, Block)
+	Loop(Block),
+	If(Expression, Block, Vec<(Expression, Block)>, Option<Block>),
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub enum Expression {
+	Literal(Literal),
+	Identifier(Identifier),
+	Prefix(Operator, Box<Expression>),
+	Infix(Box<Expression>, Operator, Box<Expression>),
+	Assign(Identifier, Operator, Box<Expression>),
+	Call(Identifier, Vec<Expression>)
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub enum Literal {
+	Integer(String),
+	Float(String),
+	Boolean(bool),
+}
+
+impl Literal {
+	/// Convert a token to a literal.
+	///
+	/// # Example
+	/// ```
+	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::parser::ast::Literal;
+	///
+	/// let location = Location::new(1, 0);
+	/// let token = Token::from_type(TokenType::True, location);
+	/// let literal = Literal::from_token(token).unwrap();
+	///
+	/// assert_eq!(literal, Literal::Boolean(true));
+	/// ```
+	pub fn from_token(token: Token) -> Result<Literal, ()> {
+		match token.token_type {
+			TokenType::Integer => Ok(Literal::Integer(token.value.unwrap().clone())),
+			TokenType::Float   => Ok(Literal::Float(token.value.unwrap().clone())),
+			TokenType::True    => Ok(Literal::Boolean(true)),
+			TokenType::False   => Ok(Literal::Boolean(false)),
+
+			_ => Err(()),
+		}
+	}
+}
+
+///
+///
+///
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Operator {
+	// prefix operators
+	Not,
+	UnaryMinus,
+	BitCompl,
+
+	// infix operators
+	Plus,
+	Minus,
+	Multiply,
+	Divide,
+	Modulo,
+	BitAnd,
+	BitOr,
+	BitXor,
+	BitLeftShift,
+	BitRightShift,
+	Equal,
+	NotEqual,
+	LessThan,
+	LessThanOrEqual,
+	GreaterThan,
+	GreaterThanOrEqual,
+	And,
+	Or,
+
+	// assignment operators
+	Assign,
+	PlusAssign,
+	MinusAssign,
+	MultiplyAssign,
+	DivideAssign,
+	ModuloAssign,
+	BitAndAssign,
+	BitOrAssign,
+	BitXorAssign,
+	BitLeftShiftAssign,
+	BitRightShiftAssign,
+}
+
+impl Operator {
+	/// Convert a token to a prefix operator.
+	///
+	/// Only accepts tokens that are prefix operators. If an invalid token s converted an error
+	/// will be returned.
+	///
+	/// # Example
+	/// ```
+	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::parser::ast::Operator;
+	///
+	/// let location = Location::new(1, 0);
+	/// let token = Token::from_type(TokenType::Not, location);
+	/// let operator = Operator::new_prefix(token).unwrap();
+	///
+	/// assert_eq!(operator, Operator::Not);
+	/// ```
+	pub fn new_prefix(token: Token) -> Result<Operator, ()> {
+		match token.token_type {
+			TokenType::Not => Ok(Operator::Not),
+			TokenType::Minus => Ok(Operator::UnaryMinus),
+			TokenType::BitCompl => Ok(Operator::BitCompl),
+
+			_ => Err(())
+		}
+	}
+
+	/// Convert a token to an infix operator.
+	///
+	/// Only accepts tokens that are infix operators. If an invalid token is given an error will be
+	/// returned.
+	///
+	/// # Example
+	/// ```
+	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::parser::ast::Operator;
+	///
+	/// let location = Location::new(1, 0);
+	/// let token = Token::from_type(TokenType::Plus, location);
+	/// let operator = Operator::new_infix(token).unwrap();
+	///
+	/// assert_eq!(operator, Operator::Plus);
+	/// ```
+	pub fn new_infix(token: Token) -> Result<Operator, ()> {
+		match token.token_type {
+			TokenType::Plus               => Ok(Operator::Plus),
+			TokenType::Minus              => Ok(Operator::Minus),
+			TokenType::Multiply           => Ok(Operator::Multiply),
+			TokenType::Divide             => Ok(Operator::Divide),
+			TokenType::Modulo             => Ok(Operator::Modulo),
+			TokenType::BitAnd             => Ok(Operator::BitAnd),
+			TokenType::BitOr              => Ok(Operator::BitOr),
+			TokenType::BitXor             => Ok(Operator::BitXor),
+			TokenType::BitLeftShift       => Ok(Operator::BitLeftShift),
+			TokenType::BitRightShift      => Ok(Operator::BitRightShift),
+			TokenType::Equal              => Ok(Operator::Equal),
+			TokenType::NotEqual           => Ok(Operator::NotEqual),
+			TokenType::LessThan           => Ok(Operator::LessThan),
+			TokenType::LessThanOrEqual    => Ok(Operator::LessThanOrEqual),
+			TokenType::GreaterThan        => Ok(Operator::GreaterThan),
+			TokenType::GreaterThanOrEqual => Ok(Operator::GreaterThanOrEqual),
+			TokenType::And                => Ok(Operator::And),
+			TokenType::Or                 => Ok(Operator::Or),
+
+			_ => Err(())
+		}
+	}
+
+	/// Convert a token to an assignment operator.
+	///
+	/// Only accepts tokens that are assignment operators. If an invalid token is given, an error
+	/// will be returned.
+	///
+	/// # Example
+	/// ```
+	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::parser::ast::Operator;
+	///
+	/// let location = Location::new(1, 0);
+	/// let token = Token::from_type(TokenType::Assign, location);
+	/// let operator = Operator::new_assignment(token).unwrap();
+	///
+	/// assert_eq!(operator, Operator::Assign);
+	/// ```
+	pub fn new_assignment(token: Token) -> Result<Operator, ()> {
+		match token.token_type {
+			TokenType::Assign              => Ok(Operator::Assign),
+			TokenType::PlusAssign          => Ok(Operator::PlusAssign),
+			TokenType::MinusAssign         => Ok(Operator::MinusAssign),
+			TokenType::MultiplyAssign      => Ok(Operator::MultiplyAssign),
+			TokenType::DivideAssign        => Ok(Operator::DivideAssign),
+			TokenType::ModuloAssign        => Ok(Operator::ModuloAssign),
+			TokenType::BitAndAssign        => Ok(Operator::BitAndAssign),
+			TokenType::BitOrAssign         => Ok(Operator::BitOrAssign),
+			TokenType::BitXorAssign        => Ok(Operator::BitXorAssign),
+			TokenType::BitLeftShiftAssign  => Ok(Operator::BitLeftShiftAssign),
+			TokenType::BitRightShiftAssign => Ok(Operator::BitRightShiftAssign),
+
+			_ => Err(())
+		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use lexer::token::Location;
+
+	// An instance of `Location` used as a placeholder as tokens aren't responsible for
+	// discovering where they are relative to an input string.
+	//
+	// Tests for checking the location of tokens are correct can be found in the lexer tests.
+	const LOCATION: Location = Location {
+		line: 1,
+		column: 1,
+	};
+
+	// Helper macro for creating a new token.
+	macro_rules! token {
+		($tt:expr, $value:expr) => (
+			Token::new($tt, $value.to_string(), LOCATION);
+		);
+		($tt:expr) => (
+			Token::from_type($tt, LOCATION);
+		)
+	}
+
+	#[test]
+	fn test_operator_new_prefix() {
+		let data = vec![
+			(token!(TokenType::Not), Operator::Not),
+			(token!(TokenType::Minus), Operator::UnaryMinus),
+			(token!(TokenType::BitCompl), Operator::BitCompl),
+		];
+
+		for (input, expected) in data.iter() {
+			let operator = Operator::new_prefix(input.clone());
+
+			assert!(operator.is_ok());
+			assert_eq!(&operator.unwrap(), expected);
+		}
+	}
+
+	#[test]
+	#[ignore]
+	fn test_operator_new_prefix_error() {
+		unimplemented!()
+	}
+
+	#[test]
+	fn test_operator_new_infix() {
+		let data = vec![
+			(token!(TokenType::Plus), Operator::Plus),
+			(token!(TokenType::Minus), Operator::Minus),
+			(token!(TokenType::Multiply), Operator::Multiply),
+			(token!(TokenType::Divide), Operator::Divide),
+			(token!(TokenType::Modulo), Operator::Modulo),
+			(token!(TokenType::BitAnd), Operator::BitAnd),
+			(token!(TokenType::BitOr), Operator::BitOr),
+			(token!(TokenType::BitXor), Operator::BitXor),
+			(token!(TokenType::BitLeftShift), Operator::BitLeftShift),
+			(token!(TokenType::BitRightShift), Operator::BitRightShift),
+			(token!(TokenType::Equal), Operator::Equal),
+			(token!(TokenType::NotEqual), Operator::NotEqual),
+			(token!(TokenType::LessThan), Operator::LessThan),
+			(token!(TokenType::LessThanOrEqual), Operator::LessThanOrEqual),
+			(token!(TokenType::GreaterThan), Operator::GreaterThan),
+			(token!(TokenType::GreaterThanOrEqual), Operator::GreaterThanOrEqual),
+			(token!(TokenType::And), Operator::And),
+			(token!(TokenType::Or), Operator::Or),
+		];
+
+		for (input, expected) in data.iter() {
+			let operator = Operator::new_infix(input.clone());
+
+			assert!(operator.is_ok());
+			assert_eq!(&operator.unwrap(), expected);
+		}
+	}
+
+	#[test]
+	#[ignore]
+	fn test_operator_new_infix_error() {
+		unimplemented!()
+	}
+
+	#[test]
+	fn test_operator_new_assignment() {
+		let data = vec![
+			(token!(TokenType::Assign), Operator::Assign),
+			(token!(TokenType::PlusAssign), Operator::PlusAssign),
+			(token!(TokenType::MinusAssign), Operator::MinusAssign),
+			(token!(TokenType::MultiplyAssign), Operator::MultiplyAssign),
+			(token!(TokenType::DivideAssign), Operator::DivideAssign),
+			(token!(TokenType::ModuloAssign), Operator::ModuloAssign),
+			(token!(TokenType::BitAndAssign), Operator::BitAndAssign),
+			(token!(TokenType::BitOrAssign), Operator::BitOrAssign),
+			(token!(TokenType::BitXorAssign), Operator::BitXorAssign),
+			(token!(TokenType::BitLeftShiftAssign), Operator::BitLeftShiftAssign),
+			(token!(TokenType::BitRightShiftAssign), Operator::BitRightShiftAssign),
+		];
+
+		for (input, expected) in data.iter() {
+			let operator = Operator::new_assignment(input.clone());
+
+			assert!(operator.is_ok());
+			assert_eq!(&operator.unwrap(), expected);
+		}
+	}
+
+	#[test]
+	#[ignore]
+	fn test_operator_new_assignment_error() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_literal_from_token() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_expression() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_statement() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_block() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_type_from_token() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_type_from_token_error() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_type_from_ident() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_parameter() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_identifier() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_definition() {
+		unimplemented!()
+	}
+
+	#[test]
+	#[ignore]
+	fn test_module() {
+		unimplemented!()
+	}
 }
 
 
+
+
+
+/*
 impl fmt::Display for Statement {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
@@ -103,6 +658,15 @@ impl fmt::Display for Statement {
 				};
 
 				write!(f, "{} {}", ret, block)
+			},
+			Statement::If(cond, consq) => {
+				write!(f, "if {} {}", cond, consq)
+			},
+			Statement::IfElse(cond, consq, alt) => {
+				write!(f, "if {} {} else {}", cond, consq, alt)
+			},
+			Statement::IfElif(cond, consq, other) => {
+				write!(f, "if {} {} el{}", cond, consq, other)
 			},
 		}
 	}
@@ -555,3 +1119,4 @@ mod test {
 		assert_eq!(error.code, ErrorCode::E0004);
 	}
 }
+*/

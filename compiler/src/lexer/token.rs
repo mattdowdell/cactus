@@ -126,13 +126,12 @@ pub enum TokenType {
 	Integer,
 	Float,
 
-	// operators
-	Assign,
+	// basic operators
 	Plus,
 	Minus,
 	Multiply,
 	Divide,
-	Bang,
+	Modulo,
 
 	// bitwise operators
 	BitAnd,
@@ -142,7 +141,20 @@ pub enum TokenType {
 	BitLeftShift,
 	BitRightShift,
 
-	// comparisons
+	// assignment operators
+	Assign,
+	PlusAssign,
+	MinusAssign,
+	MultiplyAssign,
+	DivideAssign,
+	ModuloAssign,
+	BitAndAssign,
+	BitOrAssign,
+	BitXorAssign,
+	BitLeftShiftAssign,
+	BitRightShiftAssign,
+
+	// boolean operators
 	LessThan,
 	LessThanOrEqual,
 	GreaterThan,
@@ -155,6 +167,7 @@ pub enum TokenType {
 	Colon,
 	Comma,
 	Arrow,
+	ImportJoin,
 
 	// brackets
 	LeftParen,
@@ -166,19 +179,23 @@ pub enum TokenType {
 	Let,
 	Function,
 	Return,
+	Struct,
+	Enum,
+	Import,
 	True,
 	False,
 	And,
 	Or,
 	Not,
 	If,
+	Elif,
 	Else,
-	While,
-	For,
+	Loop,
 
 	// primitive types
 	TypeBool,
 	TypeInt32,
+	TypeUint32,
 	TypeFloat,
 }
 
@@ -198,13 +215,12 @@ impl fmt::Display for TokenType {
 			| TokenType::Integer
 			| TokenType::Float => write!(f, "{:?}", self),
 
-			// operators
-			TokenType::Assign   => write!(f, "="),
+			// basic operators
 			TokenType::Plus     => write!(f, "+"),
 			TokenType::Minus    => write!(f, "-"),
 			TokenType::Multiply => write!(f, "*"),
 			TokenType::Divide   => write!(f, "/"),
-			TokenType::Bang     => write!(f, "!"),
+			TokenType::Modulo   => write!(f, "%"),
 
 			// bitwise operators
 			TokenType::BitAnd        => write!(f, "&"),
@@ -214,7 +230,20 @@ impl fmt::Display for TokenType {
 			TokenType::BitLeftShift  => write!(f, "<<"),
 			TokenType::BitRightShift => write!(f, ">>"),
 
-			// comparisons
+			// assignment operators
+			TokenType::Assign              => write!(f, "="),
+			TokenType::PlusAssign          => write!(f, "+="),
+			TokenType::MinusAssign         => write!(f, "-="),
+			TokenType::MultiplyAssign      => write!(f, "*="),
+			TokenType::DivideAssign        => write!(f, "/="),
+			TokenType::ModuloAssign        => write!(f, "%="),
+			TokenType::BitAndAssign        => write!(f, "&="),
+			TokenType::BitOrAssign         => write!(f, "|="),
+			TokenType::BitXorAssign        => write!(f, "^="),
+			TokenType::BitLeftShiftAssign  => write!(f, "<<="),
+			TokenType::BitRightShiftAssign => write!(f, ">>="),
+
+			// boolean operators
 			TokenType::LessThan           => write!(f, "<"),
 			TokenType::LessThanOrEqual    => write!(f, "<="),
 			TokenType::GreaterThan        => write!(f, ">"),
@@ -223,10 +252,11 @@ impl fmt::Display for TokenType {
 			TokenType::NotEqual           => write!(f, "!="),
 
 			// delimiters
-			TokenType::Semicolon => write!(f, ";"),
-			TokenType::Colon     => write!(f, ":"),
-			TokenType::Comma     => write!(f, ","),
-			TokenType::Arrow     => write!(f, "->"),
+			TokenType::Semicolon  => write!(f, ";"),
+			TokenType::Colon      => write!(f, ":"),
+			TokenType::Comma      => write!(f, ","),
+			TokenType::Arrow      => write!(f, "->"),
+			TokenType::ImportJoin => write!(f, "::"),
 
 			// brackets
 			TokenType::LeftParen  => write!(f, "("),
@@ -238,20 +268,24 @@ impl fmt::Display for TokenType {
 			TokenType::Let      => write!(f, "let"),
 			TokenType::Function => write!(f, "fn"),
 			TokenType::Return   => write!(f, "return"),
+			TokenType::Struct   => write!(f, "struct"),
+			TokenType::Enum     => write!(f, "enum"),
+			TokenType::Import   => write!(f, "import"),
 			TokenType::True     => write!(f, "true"),
 			TokenType::False    => write!(f, "false"),
 			TokenType::And      => write!(f, "and"),
 			TokenType::Or       => write!(f, "or"),
 			TokenType::Not      => write!(f, "not"),
 			TokenType::If       => write!(f, "if"),
+			TokenType::Elif     => write!(f, "elif"),
 			TokenType::Else     => write!(f, "else"),
-			TokenType::While    => write!(f, "while"),
-			TokenType::For      => write!(f, "for"),
+			TokenType::Loop     => write!(f, "loop"),
 
 			// primitive types
-			TokenType::TypeBool  => write!(f, "bool"),
-			TokenType::TypeInt32 => write!(f, "i32"),
-			TokenType::TypeFloat => write!(f, "float"),
+			TokenType::TypeBool   => write!(f, "bool"),
+			TokenType::TypeInt32  => write!(f, "i32"),
+			TokenType::TypeUint32 => write!(f, "u32"),
+			TokenType::TypeFloat  => write!(f, "float"),
 		}
 	}
 }
@@ -347,19 +381,23 @@ impl Token {
 			"let"    => TokenType::Let,
 			"fn"     => TokenType::Function,
 			"return" => TokenType::Return,
+			"struct" => TokenType::Struct,
+			"enum"   => TokenType::Enum,
+			"import" => TokenType::Import,
 			"true"   => TokenType::True,
 			"false"  => TokenType::False,
 			"and"    => TokenType::And,
 			"or"     => TokenType::Or,
 			"not"    => TokenType::Not,
 			"if"     => TokenType::If,
+			"elif"   => TokenType::Elif,
 			"else"   => TokenType::Else,
-			"while"  => TokenType::While,
-			"for"    => TokenType::For,
+			"loop"   => TokenType::Loop,
 
 			// primitive types
 			"bool" => TokenType::TypeBool,
 			"i32"  => TokenType::TypeInt32,
+			"u32"  => TokenType::TypeUint32,
 			"f32"  => TokenType::TypeFloat,
 
 			// identifier (default)
@@ -451,17 +489,21 @@ mod test {
 			("let", token!(TokenType::Let)),
 			("fn", token!(TokenType::Function)),
 			("return", token!(TokenType::Return)),
+			("struct", token!(TokenType::Struct)),
+			("enum", token!(TokenType::Enum)),
+			("import", token!(TokenType::Import)),
 			("true", token!(TokenType::True)),
 			("false", token!(TokenType::False)),
 			("and", token!(TokenType::And)),
 			("or", token!(TokenType::Or)),
 			("not", token!(TokenType::Not)),
 			("if", token!(TokenType::If)),
+			("elif", token!(TokenType::Elif)),
 			("else", token!(TokenType::Else)),
-			("while", token!(TokenType::While)),
-			("for", token!(TokenType::For)),
+			("loop", token!(TokenType::Loop)),
 			("bool", token!(TokenType::TypeBool)),
 			("i32", token!(TokenType::TypeInt32)),
+			("u32", token!(TokenType::TypeUint32)),
 			("f32", token!(TokenType::TypeFloat)),
 		];
 

@@ -3,535 +3,374 @@
 //!
 
 use std::iter::Peekable;
-use lexer::{
-	lexer::Lexer,
-	token::{
-		Location,
-		Token,
-		TokenType,
-	},
-};
-use parser::ast;
-use parser::error::{Error, ErrorCode};
-use parser::symbol::{SymbolTable};
 
+use lexer::lexer::Lexer;
+use lexer::token::{Token, TokenType};
+use parser::ast::{Ast, Module, Definition, Identifier, Parameter, Type, Block, Statement, Expression};
 
-macro_rules! pointer_byte_size {
-	() => (
-		if cfg!(target_pointer_width="64") {
-			8
-		} else if cfg!(target_pointer_width="32") {
-			4
-		} else {
-			panic!("Unsupported value for target_pointer_width")
-		}
-	)
-}
-
-
-/// Operator precedences for Cactus.
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
-pub enum Precedence {
-	Lowest,
-	Equals,      // ==
-	LessGreater, // > or <
-	Sum,         // +
-	Product,     // *
-	Prefix,      // -X or !X
-	Call,        // myFunction(X)
-}
-
-
-impl Precedence {
-	/// Try to convert a `TokenType` to a `Precedence`.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::token::{Location, Token, TokenType};
-	/// use cactus::parser::parser::Precedence;
-	///
-	/// let token = Token::from_type(TokenType::Equal, Location::new(1, 0));
-	/// let precedence = Precedence::from_token(token);
-	/// assert!(precedence.is_ok());
-	/// assert_eq!(precedence.unwrap(), Precedence::Equals);
-	///
-	/// let token = Token::new(TokenType::Illegal, "@".to_string(), Location::new(1, 0));
-	/// let precedence = Precedence::from_token(token);
-	/// assert!(precedence.is_err());
-	/// ```
-	pub fn from_token(token: Token) -> Result<Precedence, Error> {
-		match token.token_type {
-			TokenType::Equal
-			| TokenType::NotEqual => Ok(Precedence::Equals),
-
-			TokenType::LessThan
-			| TokenType::GreaterThan => Ok(Precedence::LessGreater),
-
-			TokenType::Plus
-			| TokenType::Minus => Ok(Precedence::Sum),
-
-			TokenType::Multiply
-			| TokenType::Divide => Ok(Precedence::Product),
-
-			TokenType::LeftParen => Ok(Precedence::Call),
-
-			_ => Err(Error::from_token(ErrorCode::E0005, Some(token))),
-		}
-	}
-}
-
-
-/// A parser for the high-level language.
-pub struct Parser<'a> {
-	pub module: ast::Module,
-	pub errors: Vec<Error>,
+struct Parser<'a> {
 	lexer: Peekable<Lexer<'a>>,
-	symbol_table: SymbolTable,
-	scope: Option<SymbolTable>,
+	errors: Vec<String>
 }
-
 
 impl<'a> Parser<'a> {
-	/// Create a new instance of `Parser`.
 	///
-	/// # Example
-	/// ```
-	/// use cactus::parser::parser::Parser;
 	///
-	/// Parser::new("let x: i32 = 5;");
-	/// ```
+	///
 	pub fn new(input: &'a str) -> Parser<'a> {
 		Parser {
-			module: ast::Module::new(),
-			errors: Vec::new(),
 			lexer: Lexer::new(input).peekable(),
-			symbol_table: SymbolTable::new(pointer_byte_size!(), 0),
-			scope: None,
+			errors: Vec::new(),
 		}
 	}
 
-	/// Check if any errors occurred during parsing.
-	pub fn has_errors(&self) -> bool {
-		!self.errors.is_empty()
-	}
-
-	/// Parse the input into an AST.
 	///
-	/// # Example
-	/// ```
-	/// use cactus::parser::parser::Parser;
 	///
-	/// let mut parser = Parser::new("let x: i32 = 5;");
 	///
-	/// parser.parse();
-	/// ```
-	pub fn parse(&mut self) {
-		loop {
-			let cur = self.lexer.next();
-
-			if cur.is_none() {
-				break;
-			}
-
-			let statement = self.parse_statement(cur.unwrap());
-
-			match statement {
-				Ok(statement) => self.module.push(statement),
-				Err(error) => {
-					self.errors.push(error);
-
-					// consume tokens until we find a synchronisation point
-					// at which point we can safely start the parser again
-					/*
-					loop {
-						if self.cur.is_none() {
-							break;
-						}
-
-						if self.peek_type_is(TokenType::Semicolon) {
-							break;
-						}
-
-						self.lexer.next();
-					}
-					*/
-				},
-			};
-		}
+	pub fn parse(&mut self) -> Module {
+		self.parse_module()
 	}
 
-	//
-	//
-	//
-	fn peek_type_is(&mut self, token_type: TokenType) -> bool {
-		self.lexer.peek().is_some() && self.lexer.peek().unwrap().token_type == token_type
-	}
-
-	//
-	//
-	//
-	fn parse_statement(&mut self, token: Token) -> Result<ast::Statement, Error> {
-		match token.token_type {
-			TokenType::Let => self.parse_let_statement(),
-			TokenType::Return => self.parse_return_statement(),
-			TokenType::Function => self.parse_function_statement(),
-			_ => self.parse_expression_statement(token),
-		}
-	}
-
-	// Parse a let (assignment) statement.
-	//
-	// should be in the form `let <identifier>: <type> = <expression>;`
-	fn parse_let_statement(&mut self) -> Result<ast::Statement, Error> {
-		let ident = self.parse_identifier()?;
-
-		if !self.peek_type_is(TokenType::Colon) {
-			let token = self.lexer.next();
-			return Err(Error::from_token(ErrorCode::E0001, token));
-		} else {
-			self.lexer.next();
-		}
-
-		let type_hint = self.parse_type()?;
-
-		match self.scope {
-			Some(ref mut table) => {
-				table.insert_local(ident.value.clone(), type_hint.size_of())
-			},
-			None => {
-				return Err(Error::new(ErrorCode::E0001, ident.location));
-			},
-		};
-
-		if !self.peek_type_is(TokenType::Assign) {
-			let token = self.lexer.next();
-			return Err(Error::from_token(ErrorCode::E0001, token));
-		} else {
-			self.lexer.next();
-		}
-
-		let token = self.lexer.next().unwrap_or(Token::eof());
-		let expression = self.parse_expression(token, Precedence::Lowest)?;
-
-		if !self.peek_type_is(TokenType::Semicolon) {
-			let token = self.lexer.next();
-			return Err(Error::from_token(ErrorCode::E0001, token));
-		} else {
-			self.lexer.next();
-		}
-
-		Ok(ast::Statement::Let(ident, type_hint, expression))
-	}
-
-	// Parse a return statement.
-	//
-	// Should be in the form `return <expression>;`
-	fn parse_return_statement(&mut self) -> Result<ast::Statement, Error> {
-		let token = self.lexer.next().unwrap_or(Token::eof());
-		let expression = self.parse_expression(token, Precedence::Lowest)?;
-
-		if !self.peek_type_is(TokenType::Semicolon) {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			return Err(Error::new(ErrorCode::E0001, token.location));
-		} else {
-			self.lexer.next();
-		}
-
-		Ok(ast::Statement::Return(expression))
-	}
-
-	//
-	//
-	//
-	fn parse_block_statement(&mut self) -> Result<ast::Statement, Error> {
-		let block = self.parse_block()?;
-		Ok(ast::Statement::Block(block))
-	}
-
-	// Parse an expression as a statement,
-	fn parse_expression_statement(&mut self, token: Token) -> Result<ast::Statement, Error> {
-		let expression = self.parse_expression(token, Precedence::Lowest)?;
-
-		if self.peek_type_is(TokenType::Semicolon) {
-			self.lexer.next();
-		}
-
-		Ok(ast::Statement::Expression(expression))
-	}
-
-	//
-	//
-	//
-	fn parse_function_statement(&mut self) -> Result<ast::Statement, Error> {
-		let ident = self.parse_identifier()?;
-		let mut func_symbol = self.symbol_table.new_function(ident.value.clone());
-
-		if !self.peek_type_is(TokenType::LeftParen) {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			return Err(Error::new(ErrorCode::E0001, token.location));
-		} else {
-			self.lexer.next();
-		}
-
-		let mut params: Vec<ast::Parameter> = Vec::new();
-
-		loop {
-			if self.peek_type_is(TokenType::RightParen) {
-				break;
-			}
-
-			let ident = self.parse_identifier()?;
-
-			if !self.peek_type_is(TokenType::Colon) {
-				let token = self.lexer.next().unwrap_or(Token::eof());
-				return Err(Error::new(ErrorCode::E0001, token.location));
-			} else {
-				self.lexer.next();
-			}
-
-			let type_hint = self.parse_type()?;
-
-			func_symbol.insert_argument(ident.value.clone(), type_hint.size_of());
-			params.push(ast::Parameter::new(ident, type_hint));
-
-			if self.peek_type_is(TokenType::Comma) {
-				self.lexer.next();
-			} else {
-				break;
-			}
-		}
-
-		if !self.peek_type_is(TokenType::RightParen) {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			return Err(Error::new(ErrorCode::E0001, token.location));
-		} else {
-			self.lexer.next();
-		}
-
-		let ret_type = if self.peek_type_is(TokenType::Arrow) {
-			self.lexer.next();
-			Some(self.parse_type()?)
-		} else {
-			None
-		};
-
-		// save the current scope (if it exists)
-		// and use the function for the current scope
-		let prev_scope = self.scope.clone();
-		func_symbol.align_index();
-		self.scope = Some(SymbolTable::new(pointer_byte_size!(), func_symbol.table.index));
-
-		let block = self.parse_block()?;
-
-		func_symbol.extend(self.scope.clone().unwrap());
-		self.scope = prev_scope;
-
-		self.symbol_table.insert_function(func_symbol);
-
-		Ok(ast::Statement::Function(ident, params, ret_type, block))
-	}
-
-	//
-	//
-	//
-	fn parse_type(&mut self) -> Result<ast::Type, Error> {
-		let type_token = self.lexer.next().unwrap_or(Token::eof());
-
-		match type_token.token_type {
-			TokenType::TypeInt32 => Ok(ast::Type::Int32),
-			TokenType::TypeFloat => Ok(ast::Type::Float),
-			TokenType::TypeBool  => Ok(ast::Type::Bool),
-
-			_ => Err(Error::new(ErrorCode::E0001, type_token.location))
-		}
-	}
-
-	//
-	//
-	//
-	fn parse_identifier(&mut self) -> Result<ast::Identifier, Error> {
+	// A helper method that checks if the next token is the given type and consumes it if so.
+	// If the next token is not the given type an error will be returned instead.
+	fn expect_peek(&mut self, token_type: TokenType) -> Result<(), String> {
 		if self.lexer.peek().is_none() {
-			Err(Error::new(ErrorCode::E0001, Location::end()))
+			Err(format!(
+				"Unexpected end of file. Expected: {:?}",
+				token_type,
+			))
 		} else {
-			let token = self.lexer.next().unwrap();
-
-			if token.token_type != TokenType::Identifier {
-				Err(Error::new(ErrorCode::E0001, token.location))
+			if self.lexer.peek().unwrap().token_type == token_type {
+				self.lexer.next();
+				Ok(())
 			} else {
-				Ok(ast::Identifier::new(token.value.unwrap(), token.location))
+				Err(format!(
+					"Unexpected token type: {:?}. Expected {:?}.",
+					self.lexer.peek().unwrap().token_type,
+					token_type,
+				))
 			}
 		}
 	}
 
+	// Parse a Cactus module.
 	//
 	//
-	//
-	fn parse_block(&mut self) -> Result<ast::Block, Error> {
-		if !self.peek_type_is(TokenType::LeftBrace) {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			return Err(Error::new(ErrorCode::E0001, token.location));
-		} else {
-			self.lexer.next();
-		}
-
-		let mut block = ast::Block::new();
+	fn parse_module(&mut self) -> Module {
+		let mut module = Module::new();
 
 		loop {
 			if self.lexer.peek().is_none() {
 				break;
 			}
 
-			if self.peek_type_is(TokenType::RightBrace) {
+			match self.parse_definition() {
+				Ok(definition) => {
+					module.push(definition);
+				}
+				Err(error) => {
+					self.errors.push(error);
+				}
+			}
+		}
+
+		module
+	}
+
+	// Parse a definition from within a Cactus module.
+	fn parse_definition(&mut self) -> Result<Definition, String> {
+		let token = self.lexer.next().unwrap();
+
+		match token.token_type {
+			TokenType::Import   => self.parse_import_definition(token),
+			TokenType::Struct   => self.parse_struct_definition(token),
+			TokenType::Enum     => self.parse_enum_definition(token),
+			TokenType::Function => self.parse_function_definition(token),
+
+			_ => Err(format!(
+				"Unexpected token type: {:?}. Expected import, struct, enum or function",
+				token.token_type
+			)),
+		}
+	}
+
+	// Parse an import definition.
+	fn parse_import_definition(&mut self, token: Token) -> Result<Definition, String> {
+		let identifier = self.parse_identifier()?;
+		Ok(Definition::Import(identifier))
+	}
+
+	// Parse a structure definition.
+	fn parse_struct_definition(&mut self, token: Token) -> Result<Definition, String> {
+		let identifier = self.parse_identifier()?;
+
+		self.expect_peek(TokenType::LeftBrace)?;
+
+		let parameters = self.parse_parameter_list()?;
+
+		self.expect_peek(TokenType::RightBrace)?;
+
+		Ok(Definition::Struct(identifier, parameters))
+	}
+
+	// Parse an enumeration definition.
+	fn parse_enum_definition(&mut self, token: Token) -> Result<Definition, String> {
+		let identifier = self.parse_identifier()?;
+
+		self.expect_peek(TokenType::LeftBrace)?;
+
+		let variants = self.parse_identifier_list()?;
+
+		self.expect_peek(TokenType::RightBrace)?;
+
+		Ok(Definition::Enum(identifier, variants))
+	}
+
+	// Parse a function definition.
+	fn parse_function_definition(&mut self, token: Token) -> Result<Definition, String> {
+		let identifier = self.parse_identifier()?;
+		let parameters = self.parse_parameter_list()?;
+		let type_hint: Option<Type>;
+
+		if self.expect_peek(TokenType::Arrow).is_ok() {
+			type_hint = Some(self.parse_type()?);
+		} else {
+			type_hint = None;
+		}
+
+		let block = self.parse_block()?;
+
+		Ok(Definition::Function(identifier, parameters, type_hint, block))
+	}
+
+	// A helper for parsing multiple identifiers in one go.
+	fn parse_identifier_list(&mut self) -> Result<Vec<Identifier>, String> {
+		let mut identifiers: Vec<Identifier> = Vec::new();
+
+		loop {
+			if self.lexer.peek().is_none() {
 				break;
 			}
 
-			let token = self.lexer.next().unwrap();
-			let statement = self.parse_statement(token)?;
+			if self.lexer.peek().unwrap().token_type == TokenType::Identifier {
+				let ident = self.parse_identifier()?;
+				identifiers.push(ident);
 
-			block.push(statement);
+				// identifier lists are delimited by commas
+				// so if we have one then we can continue looking for more
+				// if not then there's either no more to find or an error has occurred
+				// so we stop now and let the potential error be handled by the calling function
+				if self.expect_peek(TokenType::Comma).is_ok() {
+					continue;
+				} else {
+					break;
+				}
+			} else {
+				break;
+			}
 		}
 
-		if !self.peek_type_is(TokenType::RightBrace) {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			return Err(Error::new(ErrorCode::E0001, token.location));
-		} else {
-			self.lexer.next();
-		}
-
-		Ok(block)
+		Ok(identifiers)
 	}
 
 	//
 	//
 	//
-	fn parse_expression(&mut self, token: Token, precedence: Precedence) -> Result<ast::Expression, Error> {
-		let mut left = match token.token_type {
-			// TODO: move specific token types to be handled by parse_prefix_expression?
-			TokenType::Identifier => Ok(ast::Expression::Identifier(ast::Identifier::from_token(token)?)),
+	fn parse_identifier(&mut self) -> Result<Identifier, String> {
+		let token = self.lexer.next();
 
-			TokenType::Integer
-			| TokenType::Float
-			| TokenType::True
-			| TokenType::False => Ok(ast::Expression::Literal(ast::Literal::from_token(token)?)),
+		if token.is_none() {
+			Err("Unexpected end of file. Expected: identifier.".to_string())
+		} else {
+			let token = token.unwrap();
 
-			TokenType::Bang
-			| TokenType::Minus => self.parse_prefix_expression(token),
-
-			TokenType::LeftParen => self.parse_grouped_expression(),
-
-			_ => {
-				println!("Unexpected token: {:?}", token);
-				Err(Error::new(ErrorCode::E0001, token.location))
+			if token.token_type != TokenType::Identifier {
+				Err(format!(
+					"Unexpected token type: {:?}. Expected: identifier.",
+					token.token_type,
+				))
+			} else {
+				Ok(Identifier::new(token.value.unwrap()))
 			}
-		}?;
+		}
+	}
+
+	// A helper for parsing multiple parameters in one go.
+	fn parse_parameter_list(&mut self) -> Result<Vec<Parameter>, String> {
+		let mut parameters: Vec<Parameter> = Vec::new();
 
 		loop {
-			if !self.peek_type_is(TokenType::Semicolon) && precedence < self.peek_precedence() {
-				let next_token = self.lexer.next().unwrap_or(Token::eof());
-
-				left = match next_token.token_type {
-					TokenType::LeftParen => self.parse_call_expression(left)?,
-					_ => self.parse_infix_expression(left, next_token)?,
-				};
-
-				continue;
-			}
-
-			break;
-		}
-
-		Ok(left)
-	}
-
-	//
-	//
-	//
-	fn peek_precedence(&mut self) -> Precedence {
-		if self.lexer.peek().is_some() {
-			let peek = self.lexer.peek().unwrap();
-			let precedence = Precedence::from_token(peek.clone());
-
-			match precedence {
-				Ok(value) => value,
-				Err(_) => Precedence::Lowest,
-			}
-		} else {
-			Precedence::Lowest
-		}
-	}
-
-	//
-	//
-	//
-	fn parse_prefix_expression(&mut self, token: Token) -> Result<ast::Expression, Error> {
-		let operator = ast::Operator::from_prefix_token(token)?;
-		let token = self.lexer.next().unwrap_or(Token::eof());
-		let right = self.parse_expression(token, Precedence::Prefix)?;
-
-		Ok(ast::Expression::Prefix(operator, Box::new(right)))
-	}
-
-	//
-	//
-	//
-	fn parse_infix_expression(&mut self, left: ast::Expression, token: Token) -> Result<ast::Expression, Error> {
-		let operator = ast::Operator::from_infix_token(token)?;
-
-		let token = self.lexer.next().unwrap_or(Token::eof());
-		let precedence = Precedence::from_token(token.clone()).unwrap_or(Precedence::Lowest);
-
-		let right = self.parse_expression(token, precedence)?;
-
-		Ok(ast::Expression::Infix(Box::new(left), operator, Box::new(right)))
-	}
-
-	//
-	//
-	//
-	fn parse_grouped_expression(&mut self) -> Result<ast::Expression, Error> {
-		let token = self.lexer.next().unwrap_or(Token::eof());
-		let expr = self.parse_expression(token, Precedence::Lowest)?;
-
-		if !self.peek_type_is(TokenType::RightParen) {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			return Err(Error::new(ErrorCode::E0001, token.location));
-		} else {
-			self.lexer.next();
-		}
-
-		Ok(expr)
-
-	}
-
-	//
-	//
-	//
-	fn parse_call_expression(&mut self, identifier: ast::Expression) -> Result<ast::Expression, Error> {
-		let mut args: Vec<ast::Expression> = Vec::new();
-
-		loop {
-			let token = self.lexer.next().unwrap_or(Token::eof());
-			let argument = self.parse_expression(token, Precedence::Lowest)?;
-
-			args.push(argument);
-
-			if self.peek_type_is(TokenType::RightParen) {
-				self.lexer.next();
+			if self.lexer.peek().is_none() {
 				break;
 			}
 
-			if self.peek_type_is(TokenType::Comma) {
-				self.lexer.next();
-				continue;
+			if self.lexer.peek().unwrap().token_type == TokenType::Identifier {
+				let param = self.parse_parameter()?;
+				parameters.push(param);
+
+				// parameters lists are delimited by commas
+				// so if we have one then we can continue looking for more
+				// if not then there's either no more to find or an error has occurred
+				// so we stop now and let the potential error be handled by the calling function
+				if self.expect_peek(TokenType::Comma).is_ok() {
+					continue;
+				} else {
+					break;
+				}
+			} else {
+				break;
 			}
-
-			return Err(Error::from_token(ErrorCode::E0001, self.lexer.next()));
 		}
 
-		match identifier {
-			ast::Expression::Identifier(ident) => Ok(ast::Expression::Call(ident, args)),
-			_ => panic!("Expected identifier, found: {:?}", identifier),
+		Ok(parameters)
+	}
+
+	//
+	//
+	//
+	fn parse_parameter(&mut self) -> Result<Parameter, String> {
+		let token = self.lexer.next();
+
+		if token.is_none() {
+			Err("Unexpected end of file. Expected: identifier.".to_string())
+		} else {
+			let token = token.unwrap();
+
+			if token.token_type != TokenType::Identifier {
+				Err(format!(
+					"Unexpected token type: {:?}. Expected: identifier.",
+					token.token_type,
+				))
+			} else {
+				let ident = Identifier::new(token.value.unwrap());
+
+				self.expect_peek(TokenType::Colon)?;
+
+				let type_hint = self.parse_type()?;
+
+				Ok(Parameter::new(ident, type_hint))
+			}
 		}
+	}
+
+	//
+	//
+	//
+	fn parse_type(&mut self) -> Result<Type, String> {
+		if self.lexer.peek().is_none() {
+			Err("Unexpected end of file. Expected: type.".to_string())
+		} else {
+			match self.lexer.peek().unwrap().token_type {
+				TokenType::Identifier => {
+					let ident = self.parse_identifier()?;
+					Ok(Type::from_identifier(ident))
+				},
+				_ => {
+					let token = self.lexer.next().unwrap();
+					let type_hint = Type::from_token(token)?;
+
+					Ok(type_hint)
+				},
+			}
+		}
+	}
+
+	//
+	//
+	//
+	fn parse_block(&mut self) -> Result<Block, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_statement(&mut self) -> Result<Statement, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_let_statement(&mut self) -> Result<Statement, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_return_statement(&mut self) -> Result<Statement, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_if_statement(&mut self) -> Result<Statement, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_loop_statement(&mut self) -> Result<Statement, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_expr_statement(&mut self) -> Result<Statement, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_expression(&mut self) -> Result<Expression, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_literal_expression(&mut self) -> Result<Expression, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_identifier_expression(&mut self) -> Result<Expression, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_prefix_expression(&mut self) -> Result<Expression, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_infix_expression(&mut self) -> Result<Expression, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_assignment_expression(&mut self) -> Result<Expression, String> {
+		unimplemented!()
+	}
+
+	//
+	//
+	//
+	fn parse_call_expression(&mut self) -> Result<Expression, String> {
+		unimplemented!()
 	}
 }
 
@@ -540,310 +379,117 @@ impl<'a> Parser<'a> {
 mod test {
 	use super::*;
 
-	//
-	//
-	//
-	macro_rules! expr_ident {
-		($ident:expr, $line:expr, $column:expr) => (
-			ast::Expression::Identifier(
-				ast::Identifier::new(
-					$ident.to_string(),
-					Location::new($line, $column),
-				)
-			)
-		)
-	}
-
-	//
-	//
-	//
-	macro_rules! expr_literal_i32 {
-		($value:expr) => (
-			ast::Expression::Literal(
-				ast::Literal::Int32(
-					$value.to_string()
-				)
-			)
-		)
-	}
-
-	//
-	//
-	//
-	macro_rules! param {
-		($ident:expr, $line:expr, $column:expr, $type_hint:expr) => (
-			ast::Parameter::new(
-				ast::Identifier::new(
-					$ident.to_string(),
-					Location::new($line, $column)
-				),
-				$type_hint
-			)
-		)
-	}
-
-	// Test precedence ordering
-	#[test]
-	fn test_precedence_ordering() {
-		assert!(Precedence::Lowest < Precedence::Equals);
-		assert!(Precedence::Equals < Precedence::LessGreater);
-		assert!(Precedence::LessGreater < Precedence::Sum);
-		assert!(Precedence::Sum < Precedence::Product);
-		assert!(Precedence::Product < Precedence::Prefix);
-		assert!(Precedence::Prefix < Precedence::Call);
-	}
-
-	// Test a let statement is correctly matched.
-	#[test]
-	fn test_let_statement() {
-		let mut parser = Parser::new("let x: i32 = 5;");
-		let expected = ast::Statement::Let(
-			ast::Identifier::new(
-				"x".to_string(),
-				Location::new(1, 5)
-			),
-			ast::Type::Int32,
-			ast::Expression::Literal(
-				ast::Literal::Int32("5".to_string())
-			)
-		);
-
-		parser.scope = Some(SymbolTable::new(pointer_byte_size!(), 0));
-		parser.parse();
-
-		if parser.has_errors() {
-			println!("{}", parser.errors.len());
-		}
-
-		assert_eq!(parser.module.statements[0], expected);
-	}
-
-	// Test a return statement is correctly matched.
-	#[test]
-	fn test_return_statement() {
-		let mut parser = Parser::new("return 5; return x;");
-		let expected = vec![
-			ast::Statement::Return(
-				ast::Expression::Literal(
-					ast::Literal::Int32("5".to_string())
-				)
-			),
-			ast::Statement::Return(
-				ast::Expression::Identifier(
-					ast::Identifier::new("x".to_string(), Location::new(1, 18))
-				)
-			),
-		];
-
-		parser.parse();
-
-		for (i, statement) in parser.module.statements.iter().enumerate() {
-			assert_eq!(statement, &expected[i]);
-		}
-	}
-
-	// Test prefix operators are correctly matched
-	#[test]
-	fn test_prefix_operators() {
-		let mut parser = Parser::new("!x; -5;");
-		let expected = vec![
-			ast::Statement::Expression(
-				ast::Expression::Prefix(
-					ast::Operator::Not,
-					Box::new(
-						ast::Expression::Identifier(
-							ast::Identifier::new(
-								"x".to_string(),
-								Location::new(1, 2)
-							)
-						)
-					)
-				)
-			),
-			ast::Statement::Expression(
-				ast::Expression::Prefix(
-					ast::Operator::UnaryMinus,
-					Box::new(
-						ast::Expression::Literal(
-							ast::Literal::Int32("5".to_string())
-						)
-					)
-				)
-			)
-		];
-
-		parser.parse();
-
-		println!("errors: {}", parser.errors.len());
-
-		for (i, statement) in parser.module.statements.iter().enumerate() {
-			assert_eq!(statement, &expected[i]);
-		}
-	}
-
-	// Test infix operators are correctly matched
-	#[test]
-	fn test_infix_operators() {
-		let mut parser = Parser::new("x + 5; 10 * 5; x / y;");
-		let expected = vec![
-			ast::Statement::Expression(
-				ast::Expression::Infix(
-					Box::new(expr_ident!("x", 1, 1)),
-					ast::Operator::Plus,
-					Box::new(expr_literal_i32!(5)),
-				)
-			),
-			ast::Statement::Expression(
-				ast::Expression::Infix(
-					Box::new(expr_literal_i32!(10)),
-					ast::Operator::Multiply,
-					Box::new(expr_literal_i32!(5)),
-				)
-			),
-			ast::Statement::Expression(
-				ast::Expression::Infix(
-					Box::new(expr_ident!("x", 1, 16)),
-					ast::Operator::Divide,
-					Box::new(expr_ident!("y", 1, 20)),
-				)
-			),
-		];
-
-		parser.parse();
-
-		println!("errors: {}", parser.errors.len());
-
-		for (i, statement) in parser.module.statements.iter().enumerate() {
-			assert_eq!(statement, &expected[i]);
-		}
-	}
-
-	// Test infix operator precedence
-	#[test]
-	fn test_precedence() {
-		let mut parser = Parser::new("1 + 2 * 3;");
-		let expected = vec![
-			ast::Statement::Expression(
-				ast::Expression::Infix(
-					Box::new(expr_literal_i32!(1)),
-					ast::Operator::Plus,
-					Box::new(
-						ast::Expression::Infix(
-							Box::new(expr_literal_i32!(2)),
-							ast::Operator::Multiply,
-							Box::new(expr_literal_i32!(3)),
-						)
-					),
-				)
-			),
-		];
-
-		parser.parse();
-
-		for (i, statement) in parser.module.statements.iter().enumerate() {
-			assert_eq!(statement, &expected[i]);
-		}
-	}
-
-	// Test infix operator precedence with brackets
-	#[test]
-	fn test_precedence_grouped() {
-		let mut parser = Parser::new("(1 + 2) * 3;");
-		let expected = vec![
-			ast::Statement::Expression(
-				ast::Expression::Infix(
-					Box::new(
-						ast::Expression::Infix(
-							Box::new(expr_literal_i32!(1)),
-							ast::Operator::Plus,
-							Box::new(expr_literal_i32!(2)),
-						)
-					),
-					ast::Operator::Multiply,
-					Box::new(expr_literal_i32!(3)),
-				),
-			),
-		];
-
-		parser.parse();
-
-		for (i, statement) in parser.module.statements.iter().enumerate() {
-			assert_eq!(statement, &expected[i]);
-		}
-	}
-
-	// Test functions are correctly matched
-	#[test]
-	fn test_function() {
-		let mut parser = Parser::new("fn square(n: i32) -> i32 { return n * n; }");
-		let expected = vec![
-			ast::Statement::Function(
-				ast::Identifier::new(
-					"square".to_string(),
-					Location::new(1, 4)
-				),
-				vec![param!("n", 1, 11, ast::Type::Int32)],
-				Some(ast::Type::Int32),
-				ast::Block {
-					statements: vec![
-						ast::Statement::Return(
-							ast::Expression::Infix(
-								Box::new(expr_ident!("n", 1, 35)),
-								ast::Operator::Multiply,
-								Box::new(expr_ident!("n", 1, 39)),
-							)
-						)
-					]
+	macro_rules! check_parser_errors {
+		($parser:expr) => (
+			if $parser.errors.len() > 0 {
+				for error in $parser.errors.iter() {
+					println!("{}", error);
 				}
-			)
-		];
 
-		parser.parse();
-
-		println!("errors: {}", parser.errors.len());
-
-		for (i, statement) in parser.module.statements.iter().enumerate() {
-			assert_eq!(statement, &expected[i]);
-		}
+				panic!("Errors found during parsing");
+			}
+		)
 	}
 
-	// Test function calls
+	macro_rules! ident {
+		($value:tt) => (
+			Identifier::new($value.to_string())
+		)
+	}
+
+	macro_rules! param {
+		($value:tt, $type_hint:expr) => (
+			Parameter::new(ident!($value), $type_hint)
+		)
+	}
+
 	#[test]
-	fn test_function_call() {
-		let mut parser = Parser::new("square(5);");
-		let expected = vec![
-			ast::Statement::Expression(
-				ast::Expression::Call(
-					ast::Identifier::new(
-						"square".to_string(),
-						Location::new(1, 1)
-					),
+	fn test_parse_enum() {
+		let mut parser = Parser::new("enum example { x, y, z }");
+		let expected = Module {
+			definitions: vec![
+				Definition::Enum(
+					ident!("example"),
 					vec![
-						expr_literal_i32!("5")
+						ident!("x"),
+						ident!("y"),
+						ident!("z"),
 					]
-				)
-			)
-		];
+				),
+			]
+		};
 
-		parser.parse();
-		println!("errors: {}", parser.errors.len());
+		let module = parser.parse();
 
-		for (i, statement) in parser.module.statements.iter().enumerate() {
-			assert_eq!(statement, &expected[i]);
-		}
+		check_parser_errors!(parser);
+		assert_eq!(module, expected);
 	}
 
-	// Test symbol table
 	#[test]
-	fn test_symbol_table() {
-		let input = "fn square(n: i32) -> i32 { let ret: i32 = n * n; return ret; }";
-		let mut parser = Parser::new(input);
+	fn test_parse_enum_with_trailing_comma() {
+		let mut parser = Parser::new("enum example { x, y, z, }");
+		let expected = Module {
+			definitions: vec![
+				Definition::Enum(
+					ident!("example"),
+					vec![
+						ident!("x"),
+						ident!("y"),
+						ident!("z"),
+					]
+				),
+			]
+		};
 
-		parser.parse();
+		let module = parser.parse();
 
-		//dbg!(parser.symbol_table);
-		println!("{}",parser.symbol_table);
+		check_parser_errors!(parser);
+		assert_eq!(module, expected);
+	}
 
-		panic!("test failed");
+	#[test]
+	fn test_parse_struct() {
+		let mut parser = Parser::new("struct example { a: i32, b: u32, c: f32, d: bool }");
+		let expected = Module {
+			definitions: vec![
+				Definition::Struct(
+					ident!("example"),
+					vec![
+						param!("a", Type::Int32),
+						param!("b", Type::Uint32),
+						param!("c", Type::Float),
+						param!("d", Type::Bool),
+					]
+				),
+			]
+		};
+
+		let module = parser.parse();
+
+		check_parser_errors!(parser);
+		assert_eq!(module, expected);
+	}
+
+	#[test]
+	fn test_parse_struct_with_trailing_comma() {
+		let mut parser = Parser::new("struct example { a: i32, b: u32, c: f32, d: bool }");
+		let expected = Module {
+			definitions: vec![
+				Definition::Struct(
+					ident!("example"),
+					vec![
+						param!("a", Type::Int32),
+						param!("b", Type::Uint32),
+						param!("c", Type::Float),
+						param!("d", Type::Bool),
+					]
+				),
+			]
+		};
+
+		let module = parser.parse();
+
+		check_parser_errors!(parser);
+		assert_eq!(module, expected);
 	}
 }

@@ -13,21 +13,12 @@ pub enum ErrorCode {
 	E0003,
 	E0004,
 	E0005,
-	E0006,
-	E0007,
-	E0008,
-	E0009,
-	E0010,
-	E0011,
-	E0012,
-	E0013,
-	E0014,
-	E0015,
-	E0016,
-	E0017,
-	E0018,
-	E0019,
-	E0020
+
+	E1000,
+	E1001,
+	E1002,
+	E1003,
+	E1004,
 }
 
 
@@ -94,6 +85,23 @@ impl fmt::Display for Error {
 			ErrorCode::E0003 => format!("Internal error: Unable to convert {:?} to prefix operator.", self.token_type),
 			ErrorCode::E0004 => format!("Internal error: Unable to convert {:?} to infix operator.", self.token_type),
 			ErrorCode::E0005 => format!("Internal error: Unable to derive precedence of {:?}.", self.token_type),
+
+			ErrorCode::E1000 => format!("Unexpected token: {} ({:?}). Expected {} ({:?})",
+				self.token_type, self.token_type, TokenType::RightParen, TokenType::RightParen),
+			ErrorCode::E1001 => format!("Unexpected token: {} ({:?}). Expected one of: identifier, integer, float, true, false, !, - or (.",
+				self.token_type, self.token_type),
+			ErrorCode::E1002 => format!("Unexpected token: {} ({:?}). Expected {} ({:?})",
+				self.token_type, self.token_type, TokenType::LeftBrace, TokenType::LeftBrace),
+			ErrorCode::E1003 => format!("Unexpected token: {} ({:?}). Expected {} ({:?})",
+				self.token_type, self.token_type, TokenType::RightBrace, TokenType::RightBrace),
+			ErrorCode::E1004 => format!("Unexpected token: {} ({:?}). Expected identifier",
+				self.token_type, self.token_type),
+			ErrorCode::E1005 => format!("Unexpected token: {} ({:?}). Expected type",
+				self.token_type, self.token_type),
+			ErrorCode::E1006 => format!("Unexpected token: {} ({:?}). Expected type",
+				self.token_type, self.token_type, TokenType::RightParen, TokenType::RightParen),
+			ErrorCode::E1006 => format!("Unexpected token: {} ({:?}). Expected type",
+				self.token_type, self.token_type, TokenType::Colon, TokenType::Colon
 
 			_ => "Internal error: Unknown".to_string(),
 		};
