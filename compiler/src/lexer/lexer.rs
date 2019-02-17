@@ -15,11 +15,8 @@
 use std::iter::Peekable;
 use std::str::Chars;
 
-use lexer::token::{
-	Location,
-	Token,
-	TokenType,
-};
+use lexer::location::Location;
+use lexer::token::{Token, TokenType};
 
 // Alternative to `char.is_whitespace()` that excludes form feeds as it's rare you would want them
 // in code (excluding strings).
@@ -292,6 +289,7 @@ impl<'a> Iterator for Lexer<'a> {
 					}
 				},
 				',' => Some(Token::from_type(TokenType::Comma, location)),
+				'.' => Some(Token::from_type(TokenType::Dot, location)),
 
 				// brackets
 				'(' => Some(Token::from_type(TokenType::LeftParen, location)),
@@ -437,13 +435,14 @@ mod test {
 	// Test delimiters are correctly matched.
 	#[test]
 	fn test_delimiters() {
-		let lexer = Lexer::new("; : , -> ::");
+		let lexer = Lexer::new("; : , -> :: .");
 		let expected = vec![
 			token!(TokenType::Semicolon, location!(1)),
 			token!(TokenType::Colon, location!(3)),
 			token!(TokenType::Comma, location!(5)),
 			token!(TokenType::Arrow, location!(7)),
 			token!(TokenType::ImportJoin, location!(10)),
+			token!(TokenType::Dot, location!(13)),
 		];
 
 		for (i, token) in lexer.enumerate() {
@@ -515,7 +514,7 @@ mod test {
 	// Test keywords are correctly matched.
 	#[test]
 	fn test_keywords() {
-		let lexer = Lexer::new("let fn return struct enum import true false and or not if elif else loop");
+		let lexer = Lexer::new("let fn return struct enum import true false and or not if elif else loop continue break");
 		let expected = vec![
 			token!(TokenType::Let, location!(1)),
 			token!(TokenType::Function, location!(5)),
@@ -532,6 +531,8 @@ mod test {
 			token!(TokenType::Elif, location!(59)),
 			token!(TokenType::Else, location!(64)),
 			token!(TokenType::Loop, location!(69)),
+			token!(TokenType::Continue, location!(74)),
+			token!(TokenType::Break, location!(83)),
 		];
 
 		for (i, token) in lexer.enumerate() {

@@ -2,116 +2,7 @@
 
 use std::fmt;
 
-/// To be used to store a location in an input string.
-///
-/// This might be the location of a specific character or token, or the current position of the
-/// lexer in the input string.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Location {
-	pub line: usize,
-	pub column: usize,
-}
-
-
-impl Location {
-	/// Create a new instance of `Location` with a specific line and column.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::token::Location;
-	///
-	/// let location = Location::new(1, 1);
-	///
-	/// assert_eq!(location.line, 1);
-	/// assert_eq!(location.column, 1);
-	/// ```
-	pub fn new(line: usize, column: usize) -> Location {
-		Location {
-			line: line,
-			column: column,
-		}
-	}
-
-	/// Create a new instance of `Location` with a line and column for the start of an input.
-	///
-	/// The column is set to 0 as it is expected to be incremented when the first character is
-	/// read in the input.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::token::Location;
-	///
-	/// let location = Location::start();
-	///
-	/// assert_eq!(location.line, 1);
-	/// assert_eq!(location.column, 0);
-	/// ```
-	pub fn start() -> Location {
-		Location {
-			line: 1,
-			column: 0,
-		}
-	}
-
-	/// Create a placeholder location used to indicate the end of the file.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::token::Location;
-	///
-	/// let location = Location::end();
-	///
-	/// assert_eq!(location.line, 0);
-	/// assert_eq!(location.column, 0);
-	/// ```
-	pub fn end() -> Location {
-		Location {
-			line: 0,
-			column: 0,
-		}
-	}
-
-	/// Increment the column count of the location.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::token::Location;
-	///
-	/// let mut location = Location::start();
-	///
-	/// assert_eq!(location.line, 1);
-	/// assert_eq!(location.column, 0);
-	///
-	/// location.increment();
-	///
-	/// assert_eq!(location.line, 1);
-	/// assert_eq!(location.column, 1);
-	/// ```
-	pub fn increment(&mut self) {
-		self.column += 1;
-	}
-
-	/// Increment the line count of the location and reset the column count back to 0.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::token::Location;
-	///
-	/// let mut location = Location::start();
-	///
-	/// assert_eq!(location.line, 1);
-	/// assert_eq!(location.column, 0);
-	///
-	/// location.newline();
-	///
-	/// assert_eq!(location.line, 2);
-	/// assert_eq!(location.column, 0);
-	/// ```
-	pub fn newline(&mut self) {
-		self.line += 1;
-		self.column = 0;
-	}
-}
+use lexer::location::Location;
 
 
 /// A representation of a token type.
@@ -168,6 +59,7 @@ pub enum TokenType {
 	Comma,
 	Arrow,
 	ImportJoin,
+	Dot,
 
 	// brackets
 	LeftParen,
@@ -191,6 +83,8 @@ pub enum TokenType {
 	Elif,
 	Else,
 	Loop,
+	Continue,
+	Break,
 
 	// primitive types
 	TypeBool,
@@ -257,6 +151,7 @@ impl fmt::Display for TokenType {
 			TokenType::Comma      => write!(f, ","),
 			TokenType::Arrow      => write!(f, "->"),
 			TokenType::ImportJoin => write!(f, "::"),
+			TokenType::Dot        => write!(f, "."),
 
 			// brackets
 			TokenType::LeftParen  => write!(f, "("),
@@ -280,6 +175,8 @@ impl fmt::Display for TokenType {
 			TokenType::Elif     => write!(f, "elif"),
 			TokenType::Else     => write!(f, "else"),
 			TokenType::Loop     => write!(f, "loop"),
+			TokenType::Continue => write!(f, "coninue"),
+			TokenType::Break    => write!(f, "break"),
 
 			// primitive types
 			TokenType::TypeBool   => write!(f, "bool"),
@@ -316,7 +213,8 @@ impl Token {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::lexer::location::Location;
+	/// use cactus::lexer::token::{Token, TokenType};
 	///
 	/// let location = Location::new(1, 1);
 	/// let value = "10".to_string();
@@ -339,7 +237,8 @@ impl Token {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::lexer::location::Location;
+	/// use cactus::lexer::token::{Token, TokenType};
 	///
 	/// let location = Location::new(1, 1);
 	/// let token = Token::from_type(TokenType::Plus, location);
@@ -364,7 +263,8 @@ impl Token {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::lexer::location::Location;
+	/// use cactus::lexer::token::{Token, TokenType};
 	///
 	/// let location = Location::new(1, 1);
 	/// let value = "true".to_string();
@@ -378,21 +278,23 @@ impl Token {
 	pub fn from_ident(value: String, location: Location) -> Token {
 		let tt = match value.as_ref() {
 			// keywords
-			"let"    => TokenType::Let,
-			"fn"     => TokenType::Function,
-			"return" => TokenType::Return,
-			"struct" => TokenType::Struct,
-			"enum"   => TokenType::Enum,
-			"import" => TokenType::Import,
-			"true"   => TokenType::True,
-			"false"  => TokenType::False,
-			"and"    => TokenType::And,
-			"or"     => TokenType::Or,
-			"not"    => TokenType::Not,
-			"if"     => TokenType::If,
-			"elif"   => TokenType::Elif,
-			"else"   => TokenType::Else,
-			"loop"   => TokenType::Loop,
+			"let"      => TokenType::Let,
+			"fn"       => TokenType::Function,
+			"return"   => TokenType::Return,
+			"struct"   => TokenType::Struct,
+			"enum"     => TokenType::Enum,
+			"import"   => TokenType::Import,
+			"true"     => TokenType::True,
+			"false"    => TokenType::False,
+			"and"      => TokenType::And,
+			"or"       => TokenType::Or,
+			"not"      => TokenType::Not,
+			"if"       => TokenType::If,
+			"elif"     => TokenType::Elif,
+			"else"     => TokenType::Else,
+			"loop"     => TokenType::Loop,
+			"continue" => TokenType::Continue,
+			"break"    => TokenType::Break,
 
 			// primitive types
 			"bool" => TokenType::TypeBool,
@@ -492,6 +394,8 @@ mod test {
 			("struct", token!(TokenType::Struct)),
 			("enum", token!(TokenType::Enum)),
 			("import", token!(TokenType::Import)),
+			("continue", token!(TokenType::Continue)),
+			("break", token!(TokenType::Break)),
 			("true", token!(TokenType::True)),
 			("false", token!(TokenType::False)),
 			("and", token!(TokenType::And)),

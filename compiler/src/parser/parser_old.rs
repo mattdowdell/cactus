@@ -29,58 +29,6 @@ macro_rules! pointer_byte_size {
 }
 
 
-/// Operator precedences for Cactus.
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
-pub enum Precedence {
-	Lowest,
-	Equals,      // ==
-	LessGreater, // > or <
-	Sum,         // +
-	Product,     // *
-	Prefix,      // -X or !X
-	Call,        // myFunction(X)
-}
-
-
-impl Precedence {
-	/// Try to convert a `TokenType` to a `Precedence`.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::token::{Location, Token, TokenType};
-	/// use cactus::parser::parser::Precedence;
-	///
-	/// let token = Token::from_type(TokenType::Equal, Location::new(1, 0));
-	/// let precedence = Precedence::from_token(token);
-	/// assert!(precedence.is_ok());
-	/// assert_eq!(precedence.unwrap(), Precedence::Equals);
-	///
-	/// let token = Token::new(TokenType::Illegal, "@".to_string(), Location::new(1, 0));
-	/// let precedence = Precedence::from_token(token);
-	/// assert!(precedence.is_err());
-	/// ```
-	pub fn from_token(token: Token) -> Result<Precedence, Error> {
-		match token.token_type {
-			TokenType::Equal
-			| TokenType::NotEqual => Ok(Precedence::Equals),
-
-			TokenType::LessThan
-			| TokenType::GreaterThan => Ok(Precedence::LessGreater),
-
-			TokenType::Plus
-			| TokenType::Minus => Ok(Precedence::Sum),
-
-			TokenType::Multiply
-			| TokenType::Divide => Ok(Precedence::Product),
-
-			TokenType::LeftParen => Ok(Precedence::Call),
-
-			_ => Err(Error::from_token(ErrorCode::E0005, Some(token))),
-		}
-	}
-}
-
-
 /// A parser for the high-level language.
 pub struct Parser<'a> {
 	pub module: ast::Module,
@@ -588,17 +536,6 @@ mod test {
 				$type_hint
 			)
 		)
-	}
-
-	// Test precedence ordering
-	#[test]
-	fn test_precedence_ordering() {
-		assert!(Precedence::Lowest < Precedence::Equals);
-		assert!(Precedence::Equals < Precedence::LessGreater);
-		assert!(Precedence::LessGreater < Precedence::Sum);
-		assert!(Precedence::Sum < Precedence::Product);
-		assert!(Precedence::Product < Precedence::Prefix);
-		assert!(Precedence::Prefix < Precedence::Call);
 	}
 
 	// Test a let statement is correctly matched.

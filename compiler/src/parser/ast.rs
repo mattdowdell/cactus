@@ -216,7 +216,7 @@ impl Type {
 ///
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
-	statements: Vec<Statement>,
+	pub statements: Vec<Statement>,
 }
 
 impl Block {
@@ -257,6 +257,8 @@ pub enum Statement {
 	Expression(Expression),
 	Loop(Block),
 	If(Expression, Block, Vec<(Expression, Block)>, Option<Block>),
+	Break,
+	Continue,
 }
 
 ///
@@ -266,9 +268,9 @@ pub enum Statement {
 pub enum Expression {
 	Literal(Literal),
 	Identifier(Identifier),
+	Struct(Vec<StructField>),
 	Prefix(Operator, Box<Expression>),
 	Infix(Box<Expression>, Operator, Box<Expression>),
-	Assign(Identifier, Operator, Box<Expression>),
 	Call(Identifier, Vec<Expression>)
 }
 
@@ -287,7 +289,8 @@ impl Literal {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::lexer::location::Location;
+	/// use cactus::lexer::token::{Token, TokenType};
 	/// use cactus::parser::ast::Literal;
 	///
 	/// let location = Location::new(1, 0);
@@ -296,14 +299,38 @@ impl Literal {
 	///
 	/// assert_eq!(literal, Literal::Boolean(true));
 	/// ```
-	pub fn from_token(token: Token) -> Result<Literal, ()> {
+	pub fn from_token(token: Token) -> Result<Literal, String> {
 		match token.token_type {
 			TokenType::Integer => Ok(Literal::Integer(token.value.unwrap().clone())),
 			TokenType::Float   => Ok(Literal::Float(token.value.unwrap().clone())),
 			TokenType::True    => Ok(Literal::Boolean(true)),
 			TokenType::False   => Ok(Literal::Boolean(false)),
 
-			_ => Err(()),
+			_ => Err(format!(
+				"Unexpected token type: {:?}. Expected one of: Integer, Float, True or False.",
+				token.token_type
+			))
+		}
+	}
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct StructField {
+	name: Identifier,
+	value: Expression,
+}
+
+impl StructField {
+	///
+	///
+	///
+	pub fn new(name: Identifier, value: Expression) -> StructField {
+		StructField {
+			name: name,
+			value: value,
 		}
 	}
 }
@@ -337,8 +364,6 @@ pub enum Operator {
 	GreaterThanOrEqual,
 	And,
 	Or,
-
-	// assignment operators
 	Assign,
 	PlusAssign,
 	MinusAssign,
@@ -360,7 +385,8 @@ impl Operator {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::lexer::location::Location;
+	/// use cactus::lexer::token::{Token, TokenType};
 	/// use cactus::parser::ast::Operator;
 	///
 	/// let location = Location::new(1, 0);
@@ -369,13 +395,16 @@ impl Operator {
 	///
 	/// assert_eq!(operator, Operator::Not);
 	/// ```
-	pub fn new_prefix(token: Token) -> Result<Operator, ()> {
+	pub fn new_prefix(token: Token) -> Result<Operator, String> {
 		match token.token_type {
 			TokenType::Not => Ok(Operator::Not),
 			TokenType::Minus => Ok(Operator::UnaryMinus),
 			TokenType::BitCompl => Ok(Operator::BitCompl),
 
-			_ => Err(())
+			_ => Err(format!(
+				"Unable to convert token type to prefix operator: {:?}.",
+				token.token_type,
+			))
 		}
 	}
 
@@ -386,7 +415,8 @@ impl Operator {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::token::{Location, Token, TokenType};
+	/// use cactus::lexer::location::Location;
+	/// use cactus::lexer::token::{Token, TokenType};
 	/// use cactus::parser::ast::Operator;
 	///
 	/// let location = Location::new(1, 0);
@@ -395,7 +425,7 @@ impl Operator {
 	///
 	/// assert_eq!(operator, Operator::Plus);
 	/// ```
-	pub fn new_infix(token: Token) -> Result<Operator, ()> {
+	pub fn new_infix(token: Token) -> Result<Operator, String> {
 		match token.token_type {
 			TokenType::Plus               => Ok(Operator::Plus),
 			TokenType::Minus              => Ok(Operator::Minus),
@@ -415,29 +445,6 @@ impl Operator {
 			TokenType::GreaterThanOrEqual => Ok(Operator::GreaterThanOrEqual),
 			TokenType::And                => Ok(Operator::And),
 			TokenType::Or                 => Ok(Operator::Or),
-
-			_ => Err(())
-		}
-	}
-
-	/// Convert a token to an assignment operator.
-	///
-	/// Only accepts tokens that are assignment operators. If an invalid token is given, an error
-	/// will be returned.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::token::{Location, Token, TokenType};
-	/// use cactus::parser::ast::Operator;
-	///
-	/// let location = Location::new(1, 0);
-	/// let token = Token::from_type(TokenType::Assign, location);
-	/// let operator = Operator::new_assignment(token).unwrap();
-	///
-	/// assert_eq!(operator, Operator::Assign);
-	/// ```
-	pub fn new_assignment(token: Token) -> Result<Operator, ()> {
-		match token.token_type {
 			TokenType::Assign              => Ok(Operator::Assign),
 			TokenType::PlusAssign          => Ok(Operator::PlusAssign),
 			TokenType::MinusAssign         => Ok(Operator::MinusAssign),
@@ -450,7 +457,10 @@ impl Operator {
 			TokenType::BitLeftShiftAssign  => Ok(Operator::BitLeftShiftAssign),
 			TokenType::BitRightShiftAssign => Ok(Operator::BitRightShiftAssign),
 
-			_ => Err(())
+			_ => Err(format!(
+				"Unable to convert token type to prefix operator: {:?}.",
+				token.token_type,
+			))
 		}
 	}
 }
@@ -458,7 +468,7 @@ impl Operator {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use lexer::token::Location;
+	use lexer::location::Location;
 
 	// An instance of `Location` used as a placeholder as tokens aren't responsible for
 	// discovering where they are relative to an input string.
@@ -522,25 +532,6 @@ mod test {
 			(token!(TokenType::GreaterThanOrEqual), Operator::GreaterThanOrEqual),
 			(token!(TokenType::And), Operator::And),
 			(token!(TokenType::Or), Operator::Or),
-		];
-
-		for (input, expected) in data.iter() {
-			let operator = Operator::new_infix(input.clone());
-
-			assert!(operator.is_ok());
-			assert_eq!(&operator.unwrap(), expected);
-		}
-	}
-
-	#[test]
-	#[ignore]
-	fn test_operator_new_infix_error() {
-		unimplemented!()
-	}
-
-	#[test]
-	fn test_operator_new_assignment() {
-		let data = vec![
 			(token!(TokenType::Assign), Operator::Assign),
 			(token!(TokenType::PlusAssign), Operator::PlusAssign),
 			(token!(TokenType::MinusAssign), Operator::MinusAssign),
@@ -555,7 +546,7 @@ mod test {
 		];
 
 		for (input, expected) in data.iter() {
-			let operator = Operator::new_assignment(input.clone());
+			let operator = Operator::new_infix(input.clone());
 
 			assert!(operator.is_ok());
 			assert_eq!(&operator.unwrap(), expected);
@@ -564,7 +555,7 @@ mod test {
 
 	#[test]
 	#[ignore]
-	fn test_operator_new_assignment_error() {
+	fn test_operator_new_infix_error() {
 		unimplemented!()
 	}
 
