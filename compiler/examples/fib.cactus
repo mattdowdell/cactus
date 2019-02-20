@@ -1,0 +1,27 @@
+
+
+fn main() {
+	fib(3);
+}
+
+
+fn fib(n: i32) -> i32 {
+	let a: i32 = 1;
+	let b: i32 = 1;
+
+	let i: i32 = 3;
+
+	loop {
+		let c: i32 = a + b;
+		a = b;
+		b = c;
+
+		if i <= n {
+			i += 1;
+		} else {
+			break;
+		}
+	}
+
+	return b;
+}

@@ -8,19 +8,40 @@
 //use std::fmt;
 //use itertools::join;
 use lexer::token::{Token, TokenType};
-//use parser::error::{Error, ErrorCode};
+use parser::error::Error;
 
+macro_rules! error {
+	($msg:expr) => (
+		Error::new($msg, Location::end())
+	);
+	($msg:expr, $location:expr) => (
+		Error::new($msg, $location)
+	);
+}
 
+///
+///
+///
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ast {
 	pub modules: Vec<Module>,
 }
 
 impl Ast {
+	///
+	///
+	///
 	pub fn new() -> Ast {
 		Ast {
 			modules: Vec::new(),
 		}
+	}
+
+	///
+	///
+	///
+	pub fn push(&mut self, module: Module) {
+		self.modules.push(module);
 	}
 }
 
@@ -89,7 +110,7 @@ pub enum Definition {
 ///
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier {
-	name: String,
+	pub name: String,
 	address: usize,
 	path: Vec<Identifier>,
 }
@@ -154,8 +175,8 @@ impl Identifier {
 ///
 #[derive(Clone, Debug, PartialEq)]
 pub struct Parameter {
-	identifier: Identifier,
-	type_hint: Type,
+	pub identifier: Identifier,
+	pub type_hint: Type,
 }
 
 impl Parameter {
@@ -189,16 +210,17 @@ impl Type {
 	///
 	///
 	///
-	pub fn from_token(token: Token) -> Result<Type, String> {
+	pub fn from_token(token: Token) -> Result<Type, Error> {
 		match token.token_type {
 			TokenType::TypeInt32  => Ok(Type::Int32),
 			TokenType::TypeUint32 => Ok(Type::Uint32),
 			TokenType::TypeFloat  => Ok(Type::Float),
 			TokenType::TypeBool   => Ok(Type::Bool),
 
-			_ => Err(format!(
-				"Unexpected token type: {:?}. Expected one of: i32, u32, f32 or bool.",
-				token.token_type,
+			_ => Err(error!(
+				format!("Unexpected token type: {:?}. Expected one of: i32, u32, f32 or bool.",
+					token.token_type),
+				token.location
 			))
 		}
 	}
@@ -299,16 +321,17 @@ impl Literal {
 	///
 	/// assert_eq!(literal, Literal::Boolean(true));
 	/// ```
-	pub fn from_token(token: Token) -> Result<Literal, String> {
+	pub fn from_token(token: Token) -> Result<Literal, Error> {
 		match token.token_type {
 			TokenType::Integer => Ok(Literal::Integer(token.value.unwrap().clone())),
 			TokenType::Float   => Ok(Literal::Float(token.value.unwrap().clone())),
 			TokenType::True    => Ok(Literal::Boolean(true)),
 			TokenType::False   => Ok(Literal::Boolean(false)),
 
-			_ => Err(format!(
-				"Unexpected token type: {:?}. Expected one of: Integer, Float, True or False.",
-				token.token_type
+			_ => Err(error!(
+				format!("Unexpected token type: {:?}. Expected one of: Integer, Float, True or False.",
+					token.token_type),
+				token.location
 			))
 		}
 	}
@@ -395,15 +418,16 @@ impl Operator {
 	///
 	/// assert_eq!(operator, Operator::Not);
 	/// ```
-	pub fn new_prefix(token: Token) -> Result<Operator, String> {
+	pub fn new_prefix(token: Token) -> Result<Operator, Error> {
 		match token.token_type {
 			TokenType::Not => Ok(Operator::Not),
 			TokenType::Minus => Ok(Operator::UnaryMinus),
 			TokenType::BitCompl => Ok(Operator::BitCompl),
 
-			_ => Err(format!(
-				"Unable to convert token type to prefix operator: {:?}.",
-				token.token_type,
+			_ => Err(error!(
+				format!("Unable to convert token type to prefix operator: {:?}.",
+					token.token_type),
+				token.location
 			))
 		}
 	}
@@ -425,7 +449,7 @@ impl Operator {
 	///
 	/// assert_eq!(operator, Operator::Plus);
 	/// ```
-	pub fn new_infix(token: Token) -> Result<Operator, String> {
+	pub fn new_infix(token: Token) -> Result<Operator, Error> {
 		match token.token_type {
 			TokenType::Plus               => Ok(Operator::Plus),
 			TokenType::Minus              => Ok(Operator::Minus),
@@ -457,9 +481,10 @@ impl Operator {
 			TokenType::BitLeftShiftAssign  => Ok(Operator::BitLeftShiftAssign),
 			TokenType::BitRightShiftAssign => Ok(Operator::BitRightShiftAssign),
 
-			_ => Err(format!(
-				"Unable to convert token type to prefix operator: {:?}.",
-				token.token_type,
+			_ => Err(error!(
+				format!("Unable to convert token type to prefix operator: {:?}.",
+					token.token_type),
+				token.location
 			))
 		}
 	}

@@ -1,25 +1,20 @@
 //!
 //!
 //!
-/*
+
 #[macro_use]
 extern crate clap;
 extern crate cactus;
 
 use std::{
-	env,
-	error::Error,
 	fs::File,
-	io::{Read, Write},
+	io::Read,
 };
 use clap::{App, Arg};
 use cactus::{
+	parser::ast::Ast,
 	parser::parser::Parser,
-	code_gen::bytecode::{
-		Module,
-		ToBytecode,
-		BytecodeNode,
-	},
+	analyser::analyser::Analyser,
 };
 
 fn main() {
@@ -27,12 +22,6 @@ fn main() {
 		.version(crate_version!())
 		.author("Matt Dowdell <mdowdell244@gmail.com>")
 		.about("Entry point for compiling Cactus programs")
-		.arg(Arg::with_name("output")
-			.help("The output file to create. Defaults to \"output.smac\"")
-			.takes_value(true)
-			.short("o")
-			.long("output")
-		)
 		.arg(
 			Arg::with_name("FILENAME")
 				.help("Sets the input file(s) to use")
@@ -57,53 +46,38 @@ fn main() {
 			.expect("Unable to read file");
 	}
 
-	let output = matches.value_of("output").unwrap_or("output.smac");
-
-	match compile(&contents) {
-		Ok(bytecode) => save_to_file(output, &bytecode),
-		Err(_) => std::process::exit(1),
-	};
+	compile(&contents);
 }
 
 
-fn compile(input: &str) -> Result<String, ()> {
+fn compile(input: &str) {
 	let mut parser = Parser::new(input);
+	let res = parser.parse();
 
-	parser.parse();
+	if res.is_err() {
+		let errors = res.err().unwrap();
 
-	if parser.has_errors() {
-		for error in parser.errors {
+		for error in errors.iter() {
 			eprintln!("{}", error);
 		}
 
-		return Err(());
+		std::process::exit(1);
 	}
 
-	let mut module = Module::new();
+	let module = res.unwrap();
+	let mut ast = Ast::new();
+	ast.push(module);
 
-	for statement in parser.module.statements {
-		let bytecode = statement.to_bytecode();
-		module.extend(bytecode);
+	let mut analyser = Analyser::new(ast);
+
+	match analyser.populate_symbol_table() {
+		Ok(table) => {
+			dbg!(table);
+			println!("No errors detected!");
+		},
+		Err(error) => {
+			eprintln!("{}", error);
+			std::process::exit(1);
+		}
 	}
-
-	Ok(module.to_code())
 }
-
-fn save_to_file(filename: &str, content: &str) {
-	let mut path = env::current_dir().unwrap();
-	path.push(format!("{}", filename));
-    let display = path.display();
-
-	let mut file = match File::create(&path) {
-     	Err(why) => panic!("Failed to create {}: {}", display, why.description()),
-        Ok(file) => file,
-    };
-
-    match file.write_all(content.as_bytes()) {
-        Err(why) => {
-            panic!("Unable to write to {}: {}", display, why.description())
-        },
-        Ok(_) => {},
-    }
-}
-*/

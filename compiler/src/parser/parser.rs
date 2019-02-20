@@ -5,7 +5,9 @@
 use std::iter::Peekable;
 
 use lexer::lexer::Lexer;
+use lexer::location::Location;
 use lexer::token::TokenType;
+
 use parser::ast::{
 	Module,
 	Definition,
@@ -19,14 +21,24 @@ use parser::ast::{
 	Literal,
 	StructField,
 };
+use parser::error::Error;
 use parser::precedence::Precedence;
+
+macro_rules! error {
+	($msg:expr) => (
+		Error::new($msg, Location::end())
+	);
+	($msg:expr, $location:expr) => (
+		Error::new($msg, $location)
+	);
+}
 
 ///
 ///
 ///
 pub struct Parser<'a> {
 	lexer: Peekable<Lexer<'a>>,
-	errors: Vec<String>
+	errors: Vec<Error>
 }
 
 impl<'a> Parser<'a> {
@@ -43,35 +55,46 @@ impl<'a> Parser<'a> {
 	///
 	///
 	///
-	pub fn parse(&mut self) -> Module {
-		self.parse_module()
+	pub fn parse(&mut self) -> Result<Module, Vec<Error>> {
+		let module = self.parse_module();
+
+		if self.errors.len() > 0 {
+			dbg!(module);
+			Err(self.errors.clone())
+		} else {
+			Ok(module)
+		}
+
+
 	}
 
 	// A helper method that checks if the next token is the given type and consumes it if so.
 	// If the next token is not the given type an error will be returned instead.
-	fn expect_peek(&mut self, token_type: TokenType) -> Result<(), String> {
+	fn expect_peek(&mut self, token_type: TokenType) -> Result<(), Error> {
 		if self.lexer.peek().is_none() {
-			Err(format!(
-				"Unexpected end of file. Expected: {:?}",
-				token_type,
+			Err(error!(
+				format!("Unexpected end of file. Expected: {:?}", token_type)
 			))
 		} else {
 			if self.lexer.peek().unwrap().token_type == token_type {
 				self.lexer.next();
 				Ok(())
 			} else {
-				Err(format!(
-					"Unexpected token type: {:?}. Expected {:?}.",
-					self.lexer.peek().unwrap().token_type,
-					token_type,
+				let token = self.lexer.peek().unwrap().clone();
+
+				Err(error!(
+					format!("Unexpected token type: {:?}. Expected {:?}.",
+						token.token_type, token_type),
+					token.location
 				))
 			}
 		}
 	}
 
+	// Get the precedence of the next token.
 	//
-	//
-	//
+	// If there is no more tokens available or if there is no precedence defined for the token, then
+	// `Precedence::Lowest` will be returned.
 	fn peek_precedence(&mut self) -> Precedence {
 		if self.lexer.peek().is_some() {
 			let peek = self.lexer.peek().unwrap();
@@ -87,8 +110,6 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a Cactus module.
-	//
-	//
 	fn parse_module(&mut self) -> Module {
 		let mut module = Module::new();
 
@@ -111,7 +132,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a definition from within a Cactus module.
-	fn parse_definition(&mut self) -> Result<Definition, String> {
+	fn parse_definition(&mut self) -> Result<Definition, Error> {
 		let token = self.lexer.next().unwrap();
 
 		match token.token_type {
@@ -124,21 +145,22 @@ impl<'a> Parser<'a> {
 			TokenType::Enum     => self.parse_enum_definition(),
 			TokenType::Function => self.parse_function_definition(),
 
-			_ => Err(format!(
-				"Unexpected token type: {:?}. Expected import, struct, enum or function",
-				token.token_type
+			_ => Err(error!(
+				format!("Unexpected token type: {:?}. Expected import, struct, enum or function",
+					token.token_type),
+				token.location
 			)),
 		}
 	}
 
 	// Parse an import definition.
-	fn parse_import_definition(&mut self) -> Result<Definition, String> {
+	fn parse_import_definition(&mut self) -> Result<Definition, Error> {
 		let identifier = self.parse_import_identifier()?;
 		Ok(Definition::Import(identifier))
 	}
 
 	// Parse a structure definition.
-	fn parse_struct_definition(&mut self) -> Result<Definition, String> {
+	fn parse_struct_definition(&mut self) -> Result<Definition, Error> {
 		let identifier = self.parse_identifier()?;
 
 		self.expect_peek(TokenType::LeftBrace)?;
@@ -151,7 +173,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse an enumeration definition.
-	fn parse_enum_definition(&mut self) -> Result<Definition, String> {
+	fn parse_enum_definition(&mut self) -> Result<Definition, Error> {
 		let identifier = self.parse_identifier()?;
 
 		self.expect_peek(TokenType::LeftBrace)?;
@@ -164,7 +186,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a function definition.
-	fn parse_function_definition(&mut self) -> Result<Definition, String> {
+	fn parse_function_definition(&mut self) -> Result<Definition, Error> {
 		let identifier = self.parse_identifier()?;
 
 		self.expect_peek(TokenType::LeftParen)?;
@@ -187,7 +209,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// A helper for parsing multiple identifiers in one go.
-	fn parse_identifier_list(&mut self) -> Result<Vec<Identifier>, String> {
+	fn parse_identifier_list(&mut self) -> Result<Vec<Identifier>, Error> {
 		let mut identifiers: Vec<Identifier> = Vec::new();
 
 		loop {
@@ -216,10 +238,8 @@ impl<'a> Parser<'a> {
 		Ok(identifiers)
 	}
 
-	//
-	//
-	//
-	fn parse_import_identifier(&mut self) -> Result<Identifier, String> {
+	// Parse an imported identifier, e.g. `example::example` or `example`.
+	fn parse_import_identifier(&mut self) -> Result<Identifier, Error> {
 		let mut path: Vec<Identifier> = Vec::new();
 
 		loop {
@@ -248,21 +268,22 @@ impl<'a> Parser<'a> {
 		Ok(ident)
 	}
 
-	// Parse an identifier.
-	//
-	//
-	fn parse_identifier(&mut self) -> Result<Identifier, String> {
+	// Parse an identifier, e.g. `example`.
+	fn parse_identifier(&mut self) -> Result<Identifier, Error> {
 		let token = self.lexer.next();
 
 		if token.is_none() {
-			Err("Unexpected end of file. Expected: identifier.".to_string())
+			Err(error!(
+				"Unexpected end of file. Expected: identifier.".to_string()
+			))
 		} else {
 			let token = token.unwrap();
 
 			if token.token_type != TokenType::Identifier {
-				Err(format!(
-					"Unexpected token type: {:?}. Expected: identifier.",
-					token.token_type,
+				Err(error!(
+					format!("Unexpected token type: {:?}. Expected: identifier.",
+						token.token_type),
+					token.location
 				))
 			} else {
 				Ok(Identifier::new(token.value.unwrap()))
@@ -271,7 +292,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// A helper for parsing multiple parameters in one go.
-	fn parse_parameter_list(&mut self) -> Result<Vec<Parameter>, String> {
+	fn parse_parameter_list(&mut self) -> Result<Vec<Parameter>, Error> {
 		let mut parameters: Vec<Parameter> = Vec::new();
 
 		loop {
@@ -300,21 +321,24 @@ impl<'a> Parser<'a> {
 		Ok(parameters)
 	}
 
+	// Parse a parameter.
 	//
-	//
-	//
-	fn parse_parameter(&mut self) -> Result<Parameter, String> {
+	// Parameters consist of an identifier and a type separated by a colon.
+	fn parse_parameter(&mut self) -> Result<Parameter, Error> {
 		let token = self.lexer.next();
 
 		if token.is_none() {
-			Err("Unexpected end of file. Expected: identifier.".to_string())
+			Err(error!(
+				"Unexpected end of file. Expected: identifier.".to_string()
+			))
 		} else {
 			let token = token.unwrap();
 
 			if token.token_type != TokenType::Identifier {
-				Err(format!(
-					"Unexpected token type: {:?}. Expected: identifier.",
-					token.token_type,
+				Err(error!(
+					format!("Unexpected token type: {:?}. Expected: identifier.",
+						token.token_type),
+					token.location
 				))
 			} else {
 				let ident = Identifier::new(token.value.unwrap());
@@ -328,12 +352,15 @@ impl<'a> Parser<'a> {
 		}
 	}
 
+	// Parse a type.
 	//
-	//
-	//
-	fn parse_type(&mut self) -> Result<Type, String> {
+	// Types may be a primitive or an imported identifier in which case the type must be for a
+	// structure or enumeration.
+	fn parse_type(&mut self) -> Result<Type, Error> {
 		if self.lexer.peek().is_none() {
-			Err("Unexpected end of file. Expected: type.".to_string())
+			Err(error!(
+				"Unexpected end of file. Expected: type.".to_string()
+			))
 		} else {
 			match self.lexer.peek().unwrap().token_type {
 				TokenType::Identifier => {
@@ -350,10 +377,10 @@ impl<'a> Parser<'a> {
 		}
 	}
 
+	// Parse a block.
 	//
-	//
-	//
-	fn parse_block(&mut self) -> Result<Block, String> {
+	// A block is a series of statements wrapped in braces, e.g. `{ ... }`.
+	fn parse_block(&mut self) -> Result<Block, Error> {
 		let mut block = Block::new();
 
 		self.expect_peek(TokenType::LeftBrace)?;
@@ -370,12 +397,12 @@ impl<'a> Parser<'a> {
 		Ok(block)
 	}
 
-	//
-	//
-	//
-	fn parse_statement(&mut self) -> Result<Statement, String> {
+	// Parse a statement.
+	fn parse_statement(&mut self) -> Result<Statement, Error> {
 		if self.lexer.peek().is_none() {
-			Err("Unexpected end of file. Expected: statement".to_string())
+			Err(error!(
+				"Unexpected end of file. Expected: statement".to_string()
+			))
 		} else {
 			let stmt = match self.lexer.peek().unwrap().token_type {
 				TokenType::Let      => self.parse_let_statement()?,
@@ -391,10 +418,8 @@ impl<'a> Parser<'a> {
 		}
 	}
 
-	//
-	//
-	//
-	fn parse_let_statement(&mut self) -> Result<Statement, String> {
+	// Parse a let statement.
+	fn parse_let_statement(&mut self) -> Result<Statement, Error> {
 		self.expect_peek(TokenType::Let)?;
 
 		let ident = self.parse_identifier()?;
@@ -407,24 +432,28 @@ impl<'a> Parser<'a> {
 
 		let expr = self.parse_expression(Precedence::Lowest)?;
 
+		self.expect_peek(TokenType::Semicolon)?;
+
 		Ok(Statement::Let(ident, type_hint, expr))
 	}
 
-	//
-	//
-	//
-	fn parse_return_statement(&mut self) -> Result<Statement, String> {
+	// Parse a return statement.
+	fn parse_return_statement(&mut self) -> Result<Statement, Error> {
 		self.expect_peek(TokenType::Return)?;
 
 		let expr = self.parse_expression(Precedence::Lowest)?;
 
+		self.expect_peek(TokenType::Semicolon)?;
+
 		Ok(Statement::Return(expr))
 	}
 
+	// Parse an if statement.
 	//
-	//
-	//
-	fn parse_if_statement(&mut self) -> Result<Statement, String> {
+	// If statements consist of an initial condition expression and consequence block. They may
+	// also contain multiple other conditions and consequences, e.g. `elif` and an optional
+	// alternative block, e.g. `else`.
+	fn parse_if_statement(&mut self) -> Result<Statement, Error> {
 		self.expect_peek(TokenType::If)?;
 
 		let condition = self.parse_expression(Precedence::Lowest)?;
@@ -452,10 +481,8 @@ impl<'a> Parser<'a> {
 		Ok(Statement::If(condition, consequence, more, alternative))
 	}
 
-	//
-	//
-	//
-	fn parse_loop_statement(&mut self) -> Result<Statement, String> {
+	// Parse a loop statement.
+	fn parse_loop_statement(&mut self) -> Result<Statement, Error> {
 		self.expect_peek(TokenType::Loop)?;
 
 		let block = self.parse_block()?;
@@ -463,26 +490,26 @@ impl<'a> Parser<'a> {
 		Ok(Statement::Loop(block))
 	}
 
-	//
-	//
-	//
-	fn parse_break_statement(&mut self) -> Result<Statement, String> {
+	// Parse a break statement.
+	fn parse_break_statement(&mut self) -> Result<Statement, Error> {
 		self.expect_peek(TokenType::Break)?;
+		self.expect_peek(TokenType::Semicolon)?;
+
 		Ok(Statement::Break)
 	}
 
-	//
-	//
-	//
-	fn parse_continue_statement(&mut self) -> Result<Statement, String> {
+	// Parse a continue statement.
+	fn parse_continue_statement(&mut self) -> Result<Statement, Error> {
 		self.expect_peek(TokenType::Continue)?;
+		self.expect_peek(TokenType::Semicolon)?;
+
 		Ok(Statement::Continue)
 	}
 
+	// Parse an expression statement.
 	//
-	//
-	//
-	fn parse_expr_statement(&mut self) -> Result<Statement, String> {
+	//cAn expressions statement is simply an expression followed by a semicolon.
+	fn parse_expr_statement(&mut self) -> Result<Statement, Error> {
 		let expr = self.parse_expression(Precedence::Lowest)?;
 
 		self.expect_peek(TokenType::Semicolon)?;
@@ -490,12 +517,12 @@ impl<'a> Parser<'a> {
 		Ok(Statement::Expression(expr))
 	}
 
-	//
-	//
-	//
-	fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, String> {
+	// Parse an expression.
+	fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, Error> {
 		if self.lexer.peek().is_none() {
-			Err("Unexpected end of file. Expected: expression".to_string())
+			Err(error!(
+				"Unexpected end of file. Expected: expression".to_string()
+			))
 		} else {
 			let mut left = match self.lexer.peek().unwrap().token_type {
 				// identifier
@@ -521,9 +548,12 @@ impl<'a> Parser<'a> {
 				_ => {
 					let token = self.lexer.next().unwrap();
 
-					return Err(format!(
-						"Unexpected token type: {:?}. Expected one of: Identifier, Integer, Float, 'true', 'false', 'not', '-', '~', '(' or '{{'.",
-						token.token_type
+					return Err(error!(
+						format!(
+							"Unexpected token type: {:?}. Expected one of: Identifier, Integer, Float, 'true', 'false', 'not', '-', '~', '(' or '{{'.",
+							token.token_type
+						),
+						token.location
 					));
 				}
 			};
@@ -552,27 +582,25 @@ impl<'a> Parser<'a> {
 		}
 	}
 
+	// Parse a literal expression.
 	//
-	//
-	//
-	fn parse_literal_expression(&mut self) -> Result<Expression, String> {
+	// Literals may be integers, floating-point number or the booleans `true` and `false`.
+	fn parse_literal_expression(&mut self) -> Result<Expression, Error> {
 		let token = self.lexer.next().unwrap();
 		let literal = Literal::from_token(token)?;
 		Ok(Expression::Literal(literal))
 	}
 
-	//
-	//
-	//
-	fn parse_identifier_expression(&mut self) -> Result<Expression, String> {
+	// Parse an identifier expression.
+	fn parse_identifier_expression(&mut self) -> Result<Expression, Error> {
 		let ident = self.parse_import_identifier()?;
 		Ok(Expression::Identifier(ident))
 	}
 
+	// Parse a struct expression.
 	//
-	//
-	//
-	fn parse_struct_expression(&mut self) -> Result<Expression, String> {
+	// A struct expression is an initialisation of a struct.
+	fn parse_struct_expression(&mut self) -> Result<Expression, Error> {
 		self.expect_peek(TokenType::LeftBrace)?;
 		let mut struct_fields: Vec<StructField> = Vec::new();
 
@@ -596,10 +624,10 @@ impl<'a> Parser<'a> {
 		Ok(Expression::Struct(struct_fields))
 	}
 
+	// Parse a prefix expression.
 	//
-	//
-	//
-	fn parse_prefix_expression(&mut self) -> Result<Expression, String> {
+	// A prefix expression is an expression preceded by a prefix operator, e.g. `~`, `-` or `not`.
+	fn parse_prefix_expression(&mut self) -> Result<Expression, Error> {
 		let token = self.lexer.next().unwrap();
 		let operator = Operator::new_prefix(token)?;
 		let expr = self.parse_expression(Precedence::Prefix)?;
@@ -607,16 +635,18 @@ impl<'a> Parser<'a> {
 		Ok(Expression::Prefix(operator, Box::new(expr)))
 	}
 
+	// Parse an infix expression.
 	//
-	//
-	//
-	fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, String> {
+	// An infix expression is two expressions separated by an infix operator, e.g. `+`, `-`, etc.
+	fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, Error> {
 		let token = self.lexer.next().unwrap();
 		let operator = Operator::new_infix(token)?;
 
 
 		if self.lexer.peek().is_none() {
-			return Err("Unexpected end of file. Expected: expression.".to_string());
+			return Err(error!(
+				"Unexpected end of file. Expected: expression.".to_string()
+			));
 		} else {
 			let precedence = self.peek_precedence();
 
@@ -625,10 +655,12 @@ impl<'a> Parser<'a> {
 		}
 	}
 
+	// Parse a grouped expression.
 	//
-	//
-	//
-	fn parse_grouped_expression(&mut self) -> Result<Expression, String> {
+	// A grouped expression is an expression wrapped in parentheses, e.g. `( ... )`.
+	fn parse_grouped_expression(&mut self) -> Result<Expression, Error> {
+		self.expect_peek(TokenType::LeftParen)?;
+
 		let expr = self.parse_expression(Precedence::Lowest)?;
 
 		self.expect_peek(TokenType::RightParen)?;
@@ -636,10 +668,8 @@ impl<'a> Parser<'a> {
 		Ok(expr)
 	}
 
-	//
-	//
-	//
-	fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, String> {
+	// Parse a function call expression.
+	fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, Error> {
 		let mut args: Vec<Expression> = Vec::new();
 
 		self.expect_peek(TokenType::LeftParen)?;
@@ -657,7 +687,9 @@ impl<'a> Parser<'a> {
 			}
 
 			if self.lexer.peek().is_none() {
-				return Err("Unexpected end of file. Expected one of: ')', ','.".to_string());
+				return Err(error!(
+					"Unexpected end of file. Expected one of: ')', ','.".to_string()
+				));
 			} else {
 				if self.lexer.peek().unwrap().token_type == TokenType::RightParen {
 					continue;
@@ -665,18 +697,18 @@ impl<'a> Parser<'a> {
 
 				let token = self.lexer.next().unwrap();
 
-				return Err(format!(
-					"Unexpected token type: {:?}. Expected one of: ')', ','.",
-					token.token_type,
+				return Err(error!(
+					format!("Unexpected token type: {:?}. Expected one of: ')', ','.",
+						token.token_type),
+					token.location
 				));
 			}
 		}
 
 		match left {
 			Expression::Identifier(ident) => Ok(Expression::Call(ident, args)),
-			_ => Err(format!(
-				"Unexpected expression: {:?}. Expected: identifier.",
-				left
+			_ => Err(error!(
+				format!("Unexpected expression: {:?}. Expected: identifier.", left)
 			)),
 		}
 	}
@@ -687,15 +719,13 @@ impl<'a> Parser<'a> {
 mod test {
 	use super::*;
 
-	macro_rules! check_parser_errors {
-		($parser:expr) => (
-			if $parser.errors.len() > 0 {
-				for error in $parser.errors.iter() {
-					println!("{}", error);
-				}
-
-				panic!("Errors found during parsing");
+	macro_rules! output_parser_errors {
+		($errors:expr) => (
+			for error in $errors.iter() {
+				println!("{}", error);
 			}
+
+			panic!("Errors found during parsing");
 		)
 	}
 
@@ -767,10 +797,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -784,10 +818,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -806,10 +844,14 @@ mod test {
 			]
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -828,10 +870,14 @@ mod test {
 			]
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -851,10 +897,14 @@ mod test {
 			]
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -874,10 +924,14 @@ mod test {
 			]
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -899,10 +953,14 @@ mod test {
 			]
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -929,10 +987,14 @@ mod test {
 			]
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -951,10 +1013,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -962,8 +1028,14 @@ mod test {
 	fn test_parse_function_empty_invalid_identifier() {
 		let mut parser = Parser::new("fn a::b() {}");
 
-		parser.parse();
-		check_parser_errors!(parser);
+		match parser.parse() {
+			Ok(_) => {
+				println!("Unexpected test success");
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -982,10 +1054,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -1008,10 +1084,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -1039,10 +1119,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -1063,10 +1147,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -1074,8 +1162,14 @@ mod test {
 	fn test_parse_function_empty_with_single_param_invalid_identifier() {
 		let mut parser = Parser::new("fn x(a::b: i32) {}");
 
-		parser.parse();
-		check_parser_errors!(parser);
+		match parser.parse() {
+			Ok(_) => {
+				println!("Unexpected test success");
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -1096,10 +1190,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -1120,10 +1218,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -1147,10 +1249,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -1174,10 +1280,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -1201,10 +1311,14 @@ mod test {
 			],
 		};
 
-		let module = parser.parse();
-
-		check_parser_errors!(parser);
-		assert_eq!(module, expected);
+		match parser.parse() {
+			Ok(module) => {
+				assert_eq!(module, expected);
+			},
+			Err(errors) => {
+				output_parser_errors!(errors);
+			}
+		}
 	}
 
 	#[test]
@@ -1808,6 +1922,400 @@ mod test {
 
 		for expected in expected.iter() {
 			let output = parser.parse_expr_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_parse_expression_precedence() {
+		let mut parser = Parser::new("1 + 1 * 1;");
+		let expected = vec![
+			Statement::Expression(
+				Expression::Infix(
+					Box::new(expr_literal_int!("1")),
+					Operator::Plus,
+					Box::new(Expression::Infix(
+						Box::new(expr_literal_int!("1")),
+						Operator::Multiply,
+						Box::new(expr_literal_int!("1")),
+					))
+				)
+			),
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_expr_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_parse_expression_precedence_grouped() {
+		let mut parser = Parser::new("(1 + 1) * 1;");
+		let expected = vec![
+			Statement::Expression(
+				Expression::Infix(
+					Box::new(Expression::Infix(
+						Box::new(expr_literal_int!("1")),
+						Operator::Plus,
+						Box::new(expr_literal_int!("1")),
+					)),
+					Operator::Multiply,
+					Box::new(expr_literal_int!("1")),
+				)
+			),
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_expr_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_let_statement() {
+		let mut parser = Parser::new("let x: i32 = 1;");
+		let expected = vec![
+			Statement::Let(
+				ident!("x"),
+				Type::Int32,
+				expr_literal_int!("1"),
+			)
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_return_statement() {
+		let mut parser = Parser::new("return 1;");
+		let expected = vec![
+			Statement::Return(
+				expr_literal_int!("1"),
+			)
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_loop_statement() {
+		let mut parser = Parser::new("loop { 1; }");
+		let expected = vec![
+			Statement::Loop(
+				Block {
+					statements: vec![
+						Statement::Expression(
+							expr_literal_int!("1")
+						),
+					]
+				}
+			)
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_loop_statement_empty() {
+		let mut parser = Parser::new("loop {}");
+		let expected = vec![
+			Statement::Loop(
+				Block {
+					statements: vec![]
+				}
+			)
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_continue_statement() {
+		let mut parser = Parser::new("continue;");
+		let expected = vec![
+			Statement::Continue,
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_break_statement() {
+		let mut parser = Parser::new("break;");
+		let expected = vec![
+			Statement::Break,
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_if_statement() {
+		let mut parser = Parser::new("if 1 {}");
+		let expected = vec![
+			Statement::If(
+				expr_literal_int!("1"),
+				Block {
+					statements: vec![],
+				},
+				vec![],
+				None
+			),
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_if_else_statement() {
+		let mut parser = Parser::new("if 1 {} else {}");
+		let expected = vec![
+			Statement::If(
+				expr_literal_int!("1"),
+				Block {
+					statements: vec![],
+				},
+				vec![],
+				Some(Block {
+					statements: vec![],
+				})
+			),
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_if_elif_statement() {
+		let mut parser = Parser::new("if 1 {} elif 1 {}");
+		let expected = vec![
+			Statement::If(
+				expr_literal_int!("1"),
+				Block {
+					statements: vec![],
+				},
+				vec![
+					(
+						expr_literal_int!("1"),
+						Block {
+							statements: vec![],
+						},
+					),
+				],
+				None
+			),
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_if_elif_else_statement() {
+		let mut parser = Parser::new("if 1 {} elif 1 {} else {}");
+		let expected = vec![
+			Statement::If(
+				expr_literal_int!("1"),
+				Block {
+					statements: vec![],
+				},
+				vec![
+					(
+						expr_literal_int!("1"),
+						Block {
+							statements: vec![],
+						},
+					),
+				],
+				Some(Block {
+					statements: vec![],
+				})
+			),
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_if_elif_multiple_else_statement() {
+		let mut parser = Parser::new("if 1 {} elif 1 {} elif 1 {} elif 1 {} else {}");
+		let expected = vec![
+			Statement::If(
+				expr_literal_int!("1"),
+				Block {
+					statements: vec![],
+				},
+				vec![
+					(
+						expr_literal_int!("1"),
+						Block {
+							statements: vec![],
+						},
+					),
+					(
+						expr_literal_int!("1"),
+						Block {
+							statements: vec![],
+						},
+					),
+					(
+						expr_literal_int!("1"),
+						Block {
+							statements: vec![],
+						},
+					),
+				],
+				Some(Block {
+					statements: vec![],
+				})
+			),
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_statement();
+
+			if output.is_ok() {
+				assert_eq!(&output.unwrap(), expected);
+			} else {
+				println!("{}", output.err().unwrap());
+				panic!("Unexpected test failure")
+			}
+		}
+	}
+
+	#[test]
+	fn test_parse_block() {
+		let mut parser = Parser::new("{ let a: i32 = 1; loop { break; } return 5; }");
+		let expected = vec![
+			Block {
+				statements: vec![
+					Statement::Let(
+						ident!("a"),
+						Type::Int32,
+						expr_literal_int!("1")
+					),
+					Statement::Loop(Block {
+						statements: vec![
+							Statement::Break,
+						]
+					}),
+					Statement::Return(
+						expr_literal_int!("5")
+					),
+				],
+			}
+		];
+
+		for expected in expected.iter() {
+			let output = parser.parse_block();
 
 			if output.is_ok() {
 				assert_eq!(&output.unwrap(), expected);
