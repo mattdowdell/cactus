@@ -3,6 +3,7 @@
 //!
 
 use lexer::token::{Token, TokenType};
+use parser::error::Error;
 
 
 /// Operator precedences for Cactus.
@@ -43,7 +44,7 @@ impl Precedence {
 	/// let precedence = Precedence::from_token(token);
 	/// assert!(precedence.is_err());
 	/// ```
-	pub fn from_token(token: Token) -> Result<Precedence, String> {
+	pub fn from_token(token: Token) -> Result<Precedence, Error> {
 		match token.token_type {
 			TokenType::Assign
 			| TokenType::PlusAssign
@@ -86,9 +87,10 @@ impl Precedence {
 			TokenType::LeftParen
 			| TokenType::Dot => Ok(Precedence::Call),
 
-			_ => Err(format!(
-				"Unable to convert TokenType to Precedence: {:?}.",
-				token.token_type,
+			_ => Err(Error::new(
+				format!("Unable to convert TokenType to Precedence: {:?}.",
+					token.token_type),
+				token.location
 			)),
 		}
 	}
@@ -115,5 +117,12 @@ mod test {
 		assert!(Precedence::Sum < Precedence::Product);
 		assert!(Precedence::Product < Precedence::Prefix);
 		assert!(Precedence::Prefix < Precedence::Call);
+	}
+
+	// Test conversion
+	#[test]
+	fn test_from_token() {
+		// attempt to convert all token types to a precedence
+		unimplemented!()
 	}
 }
