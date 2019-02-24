@@ -20,6 +20,8 @@ use parser::ast::{
 	Type,
 	Block,
 	Statement,
+	If,
+	Let,
 	Expression,
 	Operator,
 	Literal,
@@ -443,7 +445,8 @@ impl<'a> Parser<'a> {
 
 		self.expect_peek(TokenType::Semicolon)?;
 
-		Ok(Statement::Let(ident, type_hint, expr))
+		let let_stmt = Let::new(ident, type_hint, expr);
+		Ok(Statement::Let(let_stmt))
 	}
 
 	// Parse a return statement.
@@ -467,7 +470,7 @@ impl<'a> Parser<'a> {
 
 		let condition = self.parse_expression(Precedence::Lowest)?;
 		let consequence = self.parse_block()?;
-		let mut more: Vec<(Expression, Block)> = Vec::new();
+		let mut other: Vec<(Expression, Block)> = Vec::new();
 		let alternative: Option<Block>;
 
 		loop {
@@ -478,7 +481,7 @@ impl<'a> Parser<'a> {
 			let expr = self.parse_expression(Precedence::Lowest)?;
 			let block = self.parse_block()?;
 
-			more.push((expr, block));
+			other.push((expr, block));
 		}
 
 		if self.expect_peek(TokenType::Else).is_ok() {
@@ -487,7 +490,8 @@ impl<'a> Parser<'a> {
 			alternative = None;
 		}
 
-		Ok(Statement::If(condition, consequence, more, alternative))
+		let if_stmt = If::new(condition, consequence, other, alternative);
+		Ok(Statement::If(if_stmt))
 	}
 
 	// Parse a loop statement.
@@ -2040,9 +2044,11 @@ mod test {
 		let mut parser = Parser::new("let x: i32 = 1;");
 		let expected = vec![
 			Statement::Let(
-				ident!("x"),
-				Type::Int32,
-				expr_literal_int!("1"),
+				Let {
+					identifier: ident!("x"),
+					type_hint: Type::Int32,
+					value: expr_literal_int!("1"),
+				}
 			)
 		];
 
@@ -2172,12 +2178,14 @@ mod test {
 		let mut parser = Parser::new("if 1 {}");
 		let expected = vec![
 			Statement::If(
-				expr_literal_int!("1"),
-				Block {
-					statements: vec![],
-				},
-				vec![],
-				None
+				If {
+					condition: expr_literal_int!("1"),
+					consequence: Block {
+						statements: vec![],
+					},
+					other: vec![],
+					alternative: None,
+				}
 			),
 		];
 
@@ -2198,14 +2206,16 @@ mod test {
 		let mut parser = Parser::new("if 1 {} else {}");
 		let expected = vec![
 			Statement::If(
-				expr_literal_int!("1"),
-				Block {
-					statements: vec![],
-				},
-				vec![],
-				Some(Block {
-					statements: vec![],
-				})
+				If {
+					condition: expr_literal_int!("1"),
+					consequence: Block {
+						statements: vec![],
+					},
+					other: vec![],
+					alternative: Some(Block {
+						statements: vec![],
+					})
+				}
 			),
 		];
 
@@ -2226,19 +2236,21 @@ mod test {
 		let mut parser = Parser::new("if 1 {} elif 1 {}");
 		let expected = vec![
 			Statement::If(
-				expr_literal_int!("1"),
-				Block {
-					statements: vec![],
-				},
-				vec![
-					(
-						expr_literal_int!("1"),
-						Block {
-							statements: vec![],
-						},
-					),
-				],
-				None
+				If {
+					condition: expr_literal_int!("1"),
+					consequence: Block {
+						statements: vec![],
+					},
+					other: vec![
+						(
+							expr_literal_int!("1"),
+							Block {
+								statements: vec![],
+							},
+						),
+					],
+					alternative: None
+				}
 			),
 		];
 
@@ -2259,21 +2271,23 @@ mod test {
 		let mut parser = Parser::new("if 1 {} elif 1 {} else {}");
 		let expected = vec![
 			Statement::If(
-				expr_literal_int!("1"),
-				Block {
-					statements: vec![],
-				},
-				vec![
-					(
-						expr_literal_int!("1"),
-						Block {
-							statements: vec![],
-						},
-					),
-				],
-				Some(Block {
-					statements: vec![],
-				})
+				If {
+					condition: expr_literal_int!("1"),
+					consequence: Block {
+						statements: vec![],
+					},
+					other: vec![
+						(
+							expr_literal_int!("1"),
+							Block {
+								statements: vec![],
+							},
+						),
+					],
+					alternative: Some(Block {
+						statements: vec![],
+					})
+				}
 			),
 		];
 
@@ -2294,33 +2308,35 @@ mod test {
 		let mut parser = Parser::new("if 1 {} elif 1 {} elif 1 {} elif 1 {} else {}");
 		let expected = vec![
 			Statement::If(
-				expr_literal_int!("1"),
-				Block {
-					statements: vec![],
-				},
-				vec![
-					(
-						expr_literal_int!("1"),
-						Block {
-							statements: vec![],
-						},
-					),
-					(
-						expr_literal_int!("1"),
-						Block {
-							statements: vec![],
-						},
-					),
-					(
-						expr_literal_int!("1"),
-						Block {
-							statements: vec![],
-						},
-					),
-				],
-				Some(Block {
-					statements: vec![],
-				})
+				If {
+					condition: expr_literal_int!("1"),
+					consequence: Block {
+						statements: vec![],
+					},
+					other: vec![
+						(
+							expr_literal_int!("1"),
+							Block {
+								statements: vec![],
+							},
+						),
+						(
+							expr_literal_int!("1"),
+							Block {
+								statements: vec![],
+							},
+						),
+						(
+							expr_literal_int!("1"),
+							Block {
+								statements: vec![],
+							},
+						),
+					],
+					alternative: Some(Block {
+						statements: vec![],
+					})
+				}
 			),
 		];
 
@@ -2343,15 +2359,19 @@ mod test {
 			Block {
 				statements: vec![
 					Statement::Let(
-						ident!("a"),
-						Type::Int32,
-						expr_literal_int!("1")
+						Let {
+							identifier: ident!("a"),
+							type_hint: Type::Int32,
+							value: expr_literal_int!("1")
+						}
 					),
-					Statement::Loop(Block {
-						statements: vec![
-							Statement::Break,
-						]
-					}),
+					Statement::Loop(
+						Block {
+							statements: vec![
+								Statement::Break,
+							]
+						}
+					),
 					Statement::Return(
 						expr_literal_int!("5")
 					),

@@ -157,25 +157,25 @@ impl SymbolTable {
 				Ok(())
 			}
 
-			Statement::Let(ident, _, _) => {
-				let name = ident.name.clone();
+			Statement::Let(let_stmt) => {
+				let name = let_stmt.identifier.name.clone();
 				self.insert_local(name);
 
 				Ok(())
 			},
 
-			Statement::If(_, conseq, other, alt) => {
+			Statement::If(if_stmt) => {
 				let (name, mut sub_table) = self.new_block();
-				sub_table.convert_block(conseq.clone())?;
+				sub_table.convert_block(if_stmt.consequence.clone())?;
 				self.insert_table(name, sub_table);
 
-				for (_, conseq) in other.iter() {
+				for (_, consequence) in if_stmt.other.iter() {
 					let (name, mut sub_table) = self.new_block();
-					sub_table.convert_block(conseq.clone())?;
+					sub_table.convert_block(consequence.clone())?;
 					self.insert_table(name, sub_table);
 				}
 
-				match alt {
+				match if_stmt.alternative {
 					Some(block) => {
 						let (name, mut sub_table) = self.new_block();
 						sub_table.convert_block(block.clone())?;

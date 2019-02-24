@@ -75,11 +75,12 @@ impl Module {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::parser::ast::{Module, Definition, Identifier};
+	/// use cactus::parser::ast::{Module, Definition, Enum, Identifier};
 	///
 	/// let ident = Identifier::new("example".to_string());
 	/// let field = Identifier::new("x".to_string());
-	/// let def = Definition::Enum(ident, vec![field]);
+	/// let enumeration = Enum::new(ident, vec![field]);
+	/// let def = Definition::Enum(enumeration);
 	/// let mut module = Module::new();
 	///
 	/// module.push(def);
@@ -355,13 +356,61 @@ impl Block {
 ///
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
-	Let(Identifier, Type, Expression),
+	Let(Let),
 	Return(Expression),
 	Expression(Expression),
 	Loop(Block),
-	If(Expression, Block, Vec<(Expression, Block)>, Option<Block>),
+	If(If),
 	Break,
 	Continue,
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct Let {
+	pub identifier: Identifier,
+	pub type_hint: Type,
+	pub value: Expression,
+}
+
+impl Let {
+	///
+	///
+	///
+	pub fn new(identifier: Identifier, type_hint: Type, value: Expression) -> Let {
+		Let {
+			identifier: identifier,
+			type_hint: type_hint,
+			value: value,
+		}
+	}
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct If {
+	pub condition: Expression,
+	pub consequence: Block,
+	pub other: Vec<(Expression, Block)>,
+	pub alternative: Option<Block>,
+}
+
+impl If {
+	///
+	///
+	///
+	pub fn new(condition: Expression, consequence: Block, other: Vec<(Expression, Block)>, alternative: Option<Block>) -> If {
+		If {
+			condition: condition,
+			consequence: consequence,
+			other: other,
+			alternative: alternative,
+		}
+	}
 }
 
 ///
