@@ -1,9 +1,6 @@
-//! A compiler for the high-level language.
+//! A compiler for Cactus.
 //!
-//! The compiler takes the high-level language and produces bytecode.
-#![feature(trace_macros)]
-
-extern crate itertools;
+//! The compiler takes the Cactus source code and produces bytecode.
 
 pub mod lexer;
 pub mod parser;

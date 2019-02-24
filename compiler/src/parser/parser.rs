@@ -11,6 +11,10 @@ use lexer::token::TokenType;
 use parser::ast::{
 	Module,
 	Definition,
+	Import,
+	Struct,
+	Enum,
+	Function,
 	Identifier,
 	Parameter,
 	Type,
@@ -155,8 +159,10 @@ impl<'a> Parser<'a> {
 
 	// Parse an import definition.
 	fn parse_import_definition(&mut self) -> Result<Definition, Error> {
-		let identifier = self.parse_import_identifier()?;
-		Ok(Definition::Import(identifier))
+		let path = self.parse_import_identifier()?;
+
+		let import = Import::new(path);
+		Ok(Definition::Import(import))
 	}
 
 	// Parse a structure definition.
@@ -165,11 +171,12 @@ impl<'a> Parser<'a> {
 
 		self.expect_peek(TokenType::LeftBrace)?;
 
-		let parameters = self.parse_parameter_list()?;
+		let fields = self.parse_parameter_list()?;
 
 		self.expect_peek(TokenType::RightBrace)?;
 
-		Ok(Definition::Struct(identifier, parameters))
+		let structure = Struct::new(identifier, fields);
+		Ok(Definition::Struct(structure))
 	}
 
 	// Parse an enumeration definition.
@@ -182,7 +189,8 @@ impl<'a> Parser<'a> {
 
 		self.expect_peek(TokenType::RightBrace)?;
 
-		Ok(Definition::Enum(identifier, variants))
+		let enumeration = Enum::new(identifier, variants);
+		Ok(Definition::Enum(enumeration))
 	}
 
 	// Parse a function definition.
@@ -191,21 +199,22 @@ impl<'a> Parser<'a> {
 
 		self.expect_peek(TokenType::LeftParen)?;
 
-		let parameters = self.parse_parameter_list()?;
+		let arguments = self.parse_parameter_list()?;
 
 		self.expect_peek(TokenType::RightParen)?;
 
-		let type_hint: Option<Type>;
+		let return_type: Option<Type>;
 
 		if self.expect_peek(TokenType::Arrow).is_ok() {
-			type_hint = Some(self.parse_type()?);
+			return_type = Some(self.parse_type()?);
 		} else {
-			type_hint = None;
+			return_type = None;
 		}
 
-		let block = self.parse_block()?;
+		let body = self.parse_block()?;
 
-		Ok(Definition::Function(identifier, parameters, type_hint, block))
+		let function = Function::new(identifier, arguments, return_type, body);
+		Ok(Definition::Function(function))
 	}
 
 	// A helper for parsing multiple identifiers in one go.
@@ -792,7 +801,9 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Import(
-					ident!("std")
+					Import {
+						path: ident!("std"),
+					}
 				)
 			],
 		};
@@ -813,7 +824,9 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Import(
-					ident_with_path("example", vec![ident!("std")])
+					Import {
+						path: ident_with_path("example", vec![ident!("std")])
+					}
 				)
 			],
 		};
@@ -834,12 +847,14 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Enum(
-					ident!("example"),
-					vec![
-						ident!("x"),
-						ident!("y"),
-						ident!("z"),
-					]
+					Enum {
+						identifier: ident!("example"),
+						variants: vec![
+							ident!("x"),
+							ident!("y"),
+							ident!("z"),
+						]
+					}
 				),
 			]
 		};
@@ -860,12 +875,14 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Enum(
-					ident!("example"),
-					vec![
-						ident!("x"),
-						ident!("y"),
-						ident!("z"),
-					]
+					Enum {
+						identifier: ident!("example"),
+						variants: vec![
+							ident!("x"),
+							ident!("y"),
+							ident!("z"),
+						]
+					}
 				),
 			]
 		};
@@ -886,13 +903,15 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Struct(
-					ident!("example"),
-					vec![
-						param!("a", Type::Int32),
-						param!("b", Type::Uint32),
-						param!("c", Type::Float),
-						param!("d", Type::Bool),
-					]
+					Struct {
+						identifier: ident!("example"),
+						fields: vec![
+							param!("a", Type::Int32),
+							param!("b", Type::Uint32),
+							param!("c", Type::Float),
+							param!("d", Type::Bool),
+						]
+					}
 				),
 			]
 		};
@@ -913,13 +932,15 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Struct(
-					ident!("example"),
-					vec![
-						param!("a", Type::Int32),
-						param!("b", Type::Uint32),
-						param!("c", Type::Float),
-						param!("d", Type::Bool),
-					]
+					Struct {
+						identifier: ident!("example"),
+						fields: vec![
+							param!("a", Type::Int32),
+							param!("b", Type::Uint32),
+							param!("c", Type::Float),
+							param!("d", Type::Bool),
+						]
+					}
 				),
 			]
 		};
@@ -940,15 +961,17 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Struct(
-					ident!("example"),
-					vec![
-						param!(
-							"a",
-							Type::Custom(
-								ident!("Test")
-							)
-						),
-					]
+					Struct {
+						identifier: ident!("example"),
+						fields: vec![
+							param!(
+								"a",
+								Type::Custom(
+									ident!("Test")
+								)
+							),
+						]
+					}
 				),
 			]
 		};
@@ -969,20 +992,22 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Struct(
-					ident!("example"),
-					vec![
-						param!(
-							"a",
-							Type::Custom(
-								ident_with_path(
-									"Test",
-									vec![
-										ident!("std")
-									]
+					Struct {
+						identifier: ident!("example"),
+						fields: vec![
+							param!(
+								"a",
+								Type::Custom(
+									ident_with_path(
+										"Test",
+										vec![
+											ident!("std")
+										]
+									)
 								)
-							)
-						),
-					]
+							),
+						]
+					}
 				),
 			]
 		};
@@ -1003,12 +1028,14 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Function(
-					ident!("x"),
-					vec![],
-					None,
-					Block {
-						statements: vec![],
-					},
+					Function {
+						identifier: ident!("x"),
+						arguments: vec![],
+						return_type: None,
+						body: Block {
+							statements: vec![],
+						},
+					}
 				)
 			],
 		};
@@ -1044,12 +1071,14 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Function(
-					ident!("x"),
-					vec![],
-					Some(Type::Int32),
-					Block {
-						statements: vec![],
-					},
+					Function {
+						identifier: ident!("x"),
+						arguments: vec![],
+						return_type: Some(Type::Int32),
+						body: Block {
+							statements: vec![],
+						},
+					}
 				)
 			],
 		};
@@ -1070,16 +1099,18 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Function(
-					ident!("x"),
-					vec![],
-					Some(
-						Type::Custom(
-							ident!("Test")
-						)
-					),
-					Block {
-						statements: vec![],
-					},
+					Function {
+						identifier: ident!("x"),
+						arguments: vec![],
+						return_type: Some(
+							Type::Custom(
+								ident!("Test")
+							)
+						),
+						body: Block {
+							statements: vec![],
+						},
+					}
 				)
 			],
 		};
@@ -1100,21 +1131,23 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Function(
-					ident!("x"),
-					vec![],
-					Some(
-						Type::Custom(
-							ident_with_path(
-								"Test",
-								vec![
-									ident!("std")
-								]
+					Function {
+						identifier: ident!("x"),
+						arguments: vec![],
+						return_type: Some(
+							Type::Custom(
+								ident_with_path(
+									"Test",
+									vec![
+										ident!("std")
+									]
+								)
 							)
-						)
-					),
-					Block {
-						statements: vec![],
-					},
+						),
+						body: Block {
+							statements: vec![],
+						},
+					}
 				)
 			],
 		};
@@ -1135,14 +1168,16 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Function(
-					ident!("x"),
-					vec![
-						param!("a", Type::Int32),
-					],
-					None,
-					Block {
-						statements: vec![],
-					},
+					Function {
+						identifier: ident!("x"),
+						arguments: vec![
+							param!("a", Type::Int32),
+						],
+						return_type: None,
+						body: Block {
+							statements: vec![],
+						},
+					}
 				)
 			],
 		};
@@ -1178,14 +1213,16 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Function(
-					ident!("x"),
-					vec![
-						param!("a", Type::Int32),
-					],
-					Some(Type::Int32),
-					Block {
-						statements: vec![],
-					},
+					Function {
+						identifier: ident!("x"),
+						arguments: vec![
+							param!("a", Type::Int32),
+						],
+						return_type: Some(Type::Int32),
+						body: Block {
+							statements: vec![],
+						},
+					}
 				)
 			],
 		};
@@ -1206,14 +1243,16 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Function(
-					ident!("x"),
-					vec![
-						param!("a", Type::Int32),
-					],
-					None,
-					Block {
-						statements: vec![],
-					},
+					Function {
+						identifier: ident!("x"),
+						arguments: vec![
+							param!("a", Type::Int32),
+						],
+						return_type: None,
+						body: Block {
+							statements: vec![],
+						},
+					}
 				)
 			],
 		};
@@ -1234,17 +1273,19 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Function(
-					ident!("x"),
-					vec![
-						param!("a", Type::Int32),
-						param!("b", Type::Uint32),
-						param!("c", Type::Float),
-						param!("d", Type::Bool),
-					],
-					None,
-					Block {
-						statements: vec![],
-					},
+					Function {
+						identifier: ident!("x"),
+						arguments: vec![
+							param!("a", Type::Int32),
+							param!("b", Type::Uint32),
+							param!("c", Type::Float),
+							param!("d", Type::Bool),
+						],
+						return_type: None,
+						body: Block {
+							statements: vec![],
+						},
+					}
 				)
 			],
 		};
@@ -1265,17 +1306,19 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Function(
-					ident!("x"),
-					vec![
-						param!("a", Type::Int32),
-						param!("b", Type::Uint32),
-						param!("c", Type::Float),
-						param!("d", Type::Bool),
-					],
-					Some(Type::Int32),
-					Block {
-						statements: vec![],
-					},
+					Function {
+						identifier: ident!("x"),
+						arguments: vec![
+							param!("a", Type::Int32),
+							param!("b", Type::Uint32),
+							param!("c", Type::Float),
+							param!("d", Type::Bool),
+						],
+						return_type: Some(Type::Int32),
+						body: Block {
+							statements: vec![],
+						},
+					}
 				)
 			],
 		};
@@ -1296,18 +1339,20 @@ mod test {
 		let expected = Module {
 			definitions: vec![
 				Definition::Function(
-					ident!("x"),
-					vec![
-						param!("a", Type::Int32),
-						param!("b", Type::Uint32),
-						param!("c", Type::Float),
-						param!("d", Type::Bool),
-					],
-					None,
-					Block {
-						statements: vec![],
-					},
-				)
+					Function {
+						identifier: ident!("x"),
+						arguments: vec![
+							param!("a", Type::Int32),
+							param!("b", Type::Uint32),
+							param!("c", Type::Float),
+							param!("d", Type::Bool),
+						],
+						return_type: None,
+						body: Block {
+							statements: vec![],
+						}
+					}
+				),
 			],
 		};
 

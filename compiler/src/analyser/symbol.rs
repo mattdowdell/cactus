@@ -109,16 +109,16 @@ impl SymbolTable {
 	fn convert_definition(&mut self, definition: Definition) -> Result<(), String> {
 		match definition {
 			Definition::Import(_) => Err("Imports are not yet supported".to_string()),
-			Definition::Function(identifier, parameters, _, block) => {
-				let name = identifier.name.clone();
+			Definition::Function(function) => {
+				let name = function.identifier.name.clone();
 				let mut sub_table = SymbolTable::new();
 
-				for param in parameters.iter() {
-					let param_name = param.identifier.name.clone();
-					sub_table.insert_argument(param_name);
+				for arg in function.arguments.iter() {
+					let arg_name = arg.identifier.name.clone();
+					sub_table.insert_argument(arg_name);
 				}
 
-				sub_table.convert_block(block)?;
+				sub_table.convert_block(function.body)?;
 
 				self.insert_table(name, sub_table);
 

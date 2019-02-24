@@ -2,11 +2,6 @@
 //!
 //!
 
-//extern crate itertools;
-
-//use std::collections::HashMap;
-//use std::fmt;
-//use itertools::join;
 use lexer::token::{Token, TokenType};
 use parser::error::Error;
 
@@ -99,10 +94,96 @@ impl Module {
 ///
 #[derive(Clone, Debug, PartialEq)]
 pub enum Definition {
-	Import(Identifier),
-	Struct(Identifier, Vec<Parameter>),
-	Enum(Identifier, Vec<Identifier>),
-	Function(Identifier, Vec<Parameter>, Option<Type>, Block),
+	Import(Import),
+	Struct(Struct),
+	Enum(Enum),
+	Function(Function),
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct Import {
+	pub path: Identifier,
+}
+
+impl Import {
+	///
+	///
+	///
+	pub fn new(path: Identifier) -> Import {
+		Import {
+			path: path,
+		}
+	}
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct Struct {
+	pub identifier: Identifier,
+	pub fields: Vec<Parameter>,
+}
+
+impl Struct {
+	///
+	///
+	///
+	pub fn new(identifier: Identifier, fields: Vec<Parameter>) -> Struct {
+		Struct {
+			identifier: identifier,
+			fields: fields,
+		}
+	}
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct Enum {
+	pub identifier: Identifier,
+	pub variants: Vec<Identifier>,
+}
+
+impl Enum {
+	///
+	///
+	///
+	pub fn new(identifier: Identifier, variants: Vec<Identifier>) -> Enum {
+		Enum {
+			identifier: identifier,
+			variants: variants,
+		}
+	}
+}
+
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
+pub struct Function {
+	pub identifier: Identifier,
+	pub arguments: Vec<Parameter>,
+	pub return_type: Option<Type>,
+	pub body: Block,
+}
+
+impl Function {
+	///
+	///
+	///
+	pub fn new(identifier: Identifier, arguments: Vec<Parameter>, return_type: Option<Type>, body: Block) -> Function {
+		Function {
+			identifier: identifier,
+			arguments: arguments,
+			return_type: return_type,
+			body: body,
+		}
+	}
 }
 
 ///
