@@ -5,5 +5,4 @@ authors = ["mattdowdell <matthew2.dowdell@live.uwe.ac.uk>"]
 
 [dependencies]
 clap = "~2.32"
-itertools = "~0.8"
 

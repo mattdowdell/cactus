@@ -2,22 +2,13 @@
 //!
 //!
 
-use std::collections::HashMap;
-
-use parser::ast::{
-	Ast,
-	Definition,
-	Block,
-	Statement,
-};
+use std::collections::VecDeque;
 
 
 /// A table that holds all symbols in a Cactus program.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
-	items: HashMap<String, SymbolItem>,
-	block_index: usize,
-	address_index: usize,
+	pub items: Vec<SymbolItem>,
 }
 
 impl SymbolTable {
@@ -26,168 +17,138 @@ impl SymbolTable {
 	///
 	pub fn new() -> SymbolTable {
 		SymbolTable {
-			items: HashMap::new(),
-			block_index: 0,
-			address_index: 0,
+			items: Vec::new(),
 		}
 	}
 
 	//
 	//
 	//
-	fn next_address(&mut self) -> usize {
-		let ret = self.address_index;
-		self.address_index += 1;
+	fn contains(&self, name: String) -> bool {
+		for item in self.items.iter() {
+			match item {
+				SymbolItem::Symbol(symbol) => {
+					if symbol.name == name {
+						return true;
+					}
+				}
+				// no need to check sub-tables
+				SymbolItem::Table(_) => {},
+			};
+		}
 
-		ret
+		false
 	}
 
+	/// Add a new `SymbolTable` to the existing table and return the new table's index.
 	///
 	///
-	///
-	pub fn new_block(&mut self) -> (String, SymbolTable) {
-		let name = format!("block{}", self.block_index);
+	pub fn sub_table(&mut self) -> usize {
 		let table = SymbolTable::new();
-
-		self.block_index += 1;
-
-		(name, table)
-	}
-
-	/// Add an item to the symbol table.
-	///
-	///
-	pub fn insert(&mut self, name: String, item: SymbolItem) {
-		self.items.insert(name, item);
-	}
-
-	/// Add a function argument to the symbol table.
-	///
-	///
-	pub fn insert_argument(&mut self, name: String) {
-		let symbol = Symbol::new(SymbolType::Argument, self.next_address());
-		let item = SymbolItem::Symbol(symbol);
-
-		self.insert(name, item);
-	}
-
-	/// Add a local variable to the symbol table.
-	///
-	///
-	pub fn insert_local(&mut self, name: String) {
-		let symbol = Symbol::new(SymbolType::Local, self.next_address());
-		let item = SymbolItem::Symbol(symbol);
-
-		self.insert(name, item);
-	}
-
-	/// Add a sub-symbol table to the symbol table.
-	///
-	///
-	pub fn insert_table(&mut self, name: String, table: SymbolTable) {
 		let item = SymbolItem::Table(table);
 
-		self.insert(name, item);
+		self.items.push(item);
+
+		// return the index of the new table
+		self.items.len() - 1
 	}
 
+	/// Add a function to the `SymbolTable`.
 	///
 	///
+	pub fn push_function(&mut self, name: String) -> Result<(), String> {
+		if self.contains(name.clone()) {
+			Err(format!("Error: Function {:?} already defined", name))
+		} else {
+			let symbol = Symbol::new(name, SymbolType::Function);
+			let item = SymbolItem::Symbol(symbol);
+
+			self.items.push(item);
+
+			Ok(())
+		}
+	}
+
+	/// Add an argument to the `SymbolTable`.
 	///
-	pub fn convert_ast(&mut self, ast: Ast) -> Result<(), String> {
-		for module in ast.modules.iter() {
-			for definition in module.definitions.iter() {
-				self.convert_definition(definition.clone())?;
+	///
+	pub fn push_argument(&mut self, name: String, path: VecDeque<usize>) -> Result<(), String> {
+		if path.len() > 0 {
+			let mut sub_path = path.clone();
+			let sub_index = sub_path.pop_front().unwrap();
+
+			match self.items[sub_index] {
+				SymbolItem::Table(ref mut table) => table.push_argument(name, sub_path),
+				_ => panic!("Internal error: Expected table at index: {:?}", sub_index),
 			}
-		}
+		} else {
+			if self.contains(name.clone()) {
+				Err(format!("Error: Argument {:?} already defined", name))
+			} else {
+				let symbol = Symbol::new(name, SymbolType::Argument);
+				let item = SymbolItem::Symbol(symbol);
 
-		Ok(())
-	}
-
-	//
-	//
-	//
-	fn convert_definition(&mut self, definition: Definition) -> Result<(), String> {
-		match definition {
-			Definition::Import(_) => Err("Imports are not yet supported".to_string()),
-			Definition::Function(function) => {
-				let name = function.identifier.name.clone();
-				let mut sub_table = SymbolTable::new();
-
-				for arg in function.arguments.iter() {
-					let arg_name = arg.identifier.name.clone();
-					sub_table.insert_argument(arg_name);
-				}
-
-				sub_table.convert_block(function.body)?;
-
-				self.insert_table(name, sub_table);
-
-				Ok(())
-			},
-			_ => Ok(()),
-		}
-	}
-
-	//
-	//
-	//
-	fn convert_block(&mut self, block: Block) -> Result<(), String> {
-		for statement in block.statements.iter() {
-			self.convert_statement(statement.clone())?;
-		}
-
-		Ok(())
-	}
-
-	//
-	//
-	//
-	fn convert_statement(&mut self, statement: Statement) -> Result<(), String> {
-		match statement {
-			Statement::Break
-			| Statement::Continue => Ok(()),
-			Statement::Return(_)     => Ok(()),
-			Statement::Expression(_) => Ok(()),
-
-			Statement::Loop(block)      => {
-				let (name, mut sub_table) = self.new_block();
-				sub_table.convert_block(block.clone())?;
-				self.insert_table(name, sub_table);
+				self.items.push(item);
 
 				Ok(())
 			}
+		}
+	}
 
-			Statement::Let(let_stmt) => {
-				let name = let_stmt.identifier.name.clone();
-				self.insert_local(name);
+	/// Add a local variable to the `SymbolTable`.
+	///
+	///
+	pub fn push_local(&mut self, name: String, path: VecDeque<usize>) -> Result<(), String> {
+		if path.len() > 0 {
+			let mut sub_path = path.clone();
+			let sub_index = sub_path.pop_front().unwrap();
+
+			match self.items[sub_index] {
+				SymbolItem::Table(ref mut table) => table.push_local(name, sub_path),
+				_ => panic!("Internal error: Expected table at index: {:?}", sub_index),
+			}
+		} else {
+			if self.contains(name.clone()) {
+				Err(format!("Error: Local variable {:?} already defined", name))
+			} else {
+				let symbol = Symbol::new(name, SymbolType::Local);
+				let item = SymbolItem::Symbol(symbol);
+
+				self.items.push(item);
 
 				Ok(())
-			},
+			}
+		}
+	}
 
-			Statement::If(if_stmt) => {
-				let (name, mut sub_table) = self.new_block();
-				sub_table.convert_block(if_stmt.consequence.clone())?;
-				self.insert_table(name, sub_table);
-
-				for (_, consequence) in if_stmt.other.iter() {
-					let (name, mut sub_table) = self.new_block();
-					sub_table.convert_block(consequence.clone())?;
-					self.insert_table(name, sub_table);
-				}
-
-				match if_stmt.alternative {
-					Some(block) => {
-						let (name, mut sub_table) = self.new_block();
-						sub_table.convert_block(block.clone())?;
-						self.insert_table(name, sub_table);
+	pub fn lookup_symbol(&self, name: String, path: VecDeque<usize>, is_function: bool) -> bool {
+		for (index, item) in self.items.iter().enumerate() {
+			match item {
+				SymbolItem::Symbol(symbol) => {
+					if symbol.name == name {
+						return true;
 					}
-					_ => {}
 				}
+				SymbolItem::Table(sub_table) => {
+					// functions calls should never need to check sub-tables
+					// as we don't allow nested function definitions
+					if is_function {
+						continue;
+					}
 
-				Ok(())
-			},
+					if path.len() > 0 && path[0] == index {
+						let mut sub_path = path.clone();
+						sub_path.pop_front();
 
+						if sub_table.lookup_symbol(name.clone(), sub_path, false) {
+							return true;
+						}
+					}
+				}
+			}
 		}
+
+		return false;
 	}
 }
 
@@ -206,18 +167,18 @@ pub enum SymbolItem {
 ///
 #[derive(Clone, Debug, PartialEq)]
 pub struct Symbol {
+	name: String,
 	symbol_type: SymbolType,
-	address: usize,
 }
 
 impl Symbol {
 	///
 	///
 	///
-	pub fn new(symbol_type: SymbolType, address: usize) -> Symbol {
+	pub fn new(name: String, symbol_type: SymbolType) -> Symbol {
 		Symbol {
+			name: name,
 			symbol_type: symbol_type,
-			address: address,
 		}
 	}
 }
@@ -230,4 +191,167 @@ pub enum SymbolType {
 	Function,
 	Argument,
 	Local,
+}
+
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	//
+	#[test]
+	fn test_push_function() {
+		let mut table = SymbolTable::new();
+		let expected = SymbolTable {
+			items: vec![
+				SymbolItem::Symbol(Symbol {
+					name: "example".to_string(),
+					symbol_type: SymbolType::Function,
+				})
+			],
+		};
+
+		let name = "example".to_string();
+		let res = table.push_function(name);
+
+		assert!(res.is_ok());
+		assert_eq!(table, expected);
+	}
+
+	//
+	#[test]
+	fn test_push_function_redefined() {
+		let mut table = SymbolTable::new();
+
+		let res = table.push_function("example".to_string());
+		assert!(res.is_ok());
+
+		let res = table.push_function("example".to_string());
+		assert!(res.is_err());
+	}
+
+	//
+	#[test]
+	fn test_push_argument() {
+		let mut table = SymbolTable::new();
+		let expected = SymbolTable {
+			items: vec![
+				SymbolItem::Table(SymbolTable {
+					items: vec![
+						SymbolItem::Symbol(Symbol {
+							name: "example".to_string(),
+							symbol_type: SymbolType::Argument,
+						})
+					],
+				})
+			],
+		};
+
+		let mut path = VecDeque::new();
+		let sub_table_index = table.sub_table();
+		path.push_back(sub_table_index);
+
+		let name = "example".to_string();
+		let res = table.push_argument(name, path);
+
+		assert!(res.is_ok());
+		assert_eq!(table, expected);
+	}
+
+	//
+	#[test]
+	fn test_push_argument_redefined() {
+		let mut table = SymbolTable::new();
+
+		let mut path = VecDeque::new();
+		let sub_table_index = table.sub_table();
+		path.push_back(sub_table_index);
+
+		let res = table.push_argument("example".to_string(), path.clone());
+		assert!(res.is_ok());
+
+		let res = table.push_argument("example".to_string(), path.clone());
+		assert!(res.is_err());
+	}
+
+	//
+	#[test]
+	fn test_push_local() {
+		let mut table = SymbolTable::new();
+		let expected = SymbolTable {
+			items: vec![
+				SymbolItem::Table(SymbolTable {
+					items: vec![
+						SymbolItem::Symbol(Symbol {
+							name: "example".to_string(),
+							symbol_type: SymbolType::Local,
+						})
+					],
+				})
+			],
+		};
+
+		let mut path = VecDeque::new();
+		let sub_table_index = table.sub_table();
+		path.push_back(sub_table_index);
+
+		let name = "example".to_string();
+		let res = table.push_local(name, path);
+
+		assert!(res.is_ok());
+		assert_eq!(table, expected);
+	}
+
+	//
+	#[test]
+	fn test_push_local_redefined() {
+		let mut table = SymbolTable::new();
+
+		let mut path = VecDeque::new();
+		let sub_table_index = table.sub_table();
+		path.push_back(sub_table_index);
+
+		let res = table.push_local("example".to_string(), path.clone());
+		assert!(res.is_ok());
+
+		let res = table.push_local("example".to_string(), path.clone());
+		assert!(res.is_err());
+	}
+
+	//
+	#[test]
+	fn test_lookup_symbol_function() {
+		let table = SymbolTable {
+			items: vec![
+				SymbolItem::Symbol(Symbol {
+					name: "example".to_string(),
+					symbol_type: SymbolType::Local,
+				}),
+				SymbolItem::Table(SymbolTable {
+					items: vec![
+						SymbolItem::Symbol(Symbol {
+							name: "test".to_string(),
+							symbol_type: SymbolType::Local,
+						}),
+					],
+				}),
+			],
+		};
+
+		let mut path: VecDeque<usize> = VecDeque::new();
+
+		// without a path, only the function lookup should pass
+		assert!(table.lookup_symbol("example".to_string(), path.clone(), true));
+		assert!(!table.lookup_symbol("test".to_string(), path.clone(), false));
+
+		path.push_back(1);
+
+		// with a path, both lookups should pass
+		assert!(table.lookup_symbol("example".to_string(), path.clone(), true));
+		assert!(table.lookup_symbol("test".to_string(), path.clone(), false));
+
+		// check that lookups for non-existent symbols fail
+		assert!(!table.lookup_symbol("not_found".to_string(), path.clone(), true));
+		assert!(!table.lookup_symbol("not_found".to_string(), path.clone(), false));
+	}
 }

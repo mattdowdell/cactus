@@ -75,8 +75,11 @@ fn compile(input: &str) {
 			dbg!(table);
 			println!("No errors detected!");
 		},
-		Err(error) => {
-			eprintln!("{}", error);
+		Err(errors) => {
+			for error in errors.iter() {
+				eprintln!("{}", error);
+			}
+
 			std::process::exit(1);
 		}
 	}

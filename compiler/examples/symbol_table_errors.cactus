@@ -1,0 +1,18 @@
+
+
+fn foo() {
+	let x: i32 = 5;
+	y += 5;
+}
+
+fn foo() {}
+
+fn test(a: i32, a: i32) {
+	let b: i32 = 5;
+	let b: i32 = 5;
+}
+
+fn main() {
+	foo();
+	does_not_exist();
+}
