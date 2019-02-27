@@ -121,6 +121,9 @@ impl SymbolTable {
 		}
 	}
 
+	///
+	///
+	///
 	pub fn lookup_symbol(&self, name: String, path: VecDeque<usize>, is_function: bool) -> bool {
 		for (index, item) in self.items.iter().enumerate() {
 			match item {
