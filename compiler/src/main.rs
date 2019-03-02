@@ -70,9 +70,8 @@ fn compile(input: &str) {
 
 	let mut analyser = Analyser::new(ast);
 
-	match analyser.populate_symbol_table() {
-		Ok(table) => {
-			dbg!(table);
+	match analyser.analyse_ast() {
+		Ok(_) => {
 			println!("No errors detected!");
 		},
 		Err(errors) => {

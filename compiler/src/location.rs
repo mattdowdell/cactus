@@ -18,7 +18,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::location::Location;
+	/// use cactus::location::Location;
 	///
 	/// let location = Location::new(1, 1);
 	///
@@ -39,7 +39,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::location::Location;
+	/// use cactus::location::Location;
 	///
 	/// let location = Location::start();
 	///
@@ -57,7 +57,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::location::Location;
+	/// use cactus::location::Location;
 	///
 	/// let location = Location::end();
 	///
@@ -75,7 +75,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::location::Location;
+	/// use cactus::location::Location;
 	///
 	/// let mut location = Location::start();
 	///
@@ -95,7 +95,7 @@ impl Location {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::location::Location;
+	/// use cactus::location::Location;
 	///
 	/// let mut location = Location::start();
 	///

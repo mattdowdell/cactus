@@ -15,8 +15,8 @@
 use std::iter::Peekable;
 use std::str::Chars;
 
-use lexer::location::Location;
-use lexer::token::{Token, TokenType};
+use crate::location::Location;
+use crate::lexer::token::{Token, TokenType};
 
 // Alternative to `char.is_whitespace()` that excludes form feeds as it's rare you would want them
 // in code (excluding strings).

@@ -4,8 +4,8 @@
 //! variants of `Precedence` directly. The code for managing prefix operator precedence is baked
 //! into the parser to avoid conflict between prefix and infix operators.
 
-use lexer::token::{Token, TokenType};
-use parser::error::Error;
+use crate::lexer::token::{Token, TokenType};
+use crate::parser::error::Error;
 
 
 /// Operator precedences for Cactus.
@@ -50,7 +50,7 @@ impl Precedence {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::location::Location;
+	/// use cactus::location::Location;
 	/// use cactus::lexer::token::{Token, TokenType};
 	/// use cactus::parser::precedence::Precedence;
 	///
@@ -119,7 +119,7 @@ impl Precedence {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use lexer::location::Location;
+	use crate::location::Location;
 
 	// An instance of `Location` used as a placeholder.
 	const LOCATION: Location = Location {

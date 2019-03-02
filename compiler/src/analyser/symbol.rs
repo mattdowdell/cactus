@@ -4,11 +4,22 @@
 
 use std::collections::VecDeque;
 
+use crate::{
+	error::{
+		CompilationError,
+		ErrorCode,
+		ErrorType,
+	},
+	location::Location,
+};
+
 
 /// A table that holds all symbols in a Cactus program.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
 	pub items: Vec<SymbolItem>,
+	argument_offset: usize,
+	local_offset: usize,
 }
 
 impl SymbolTable {
@@ -18,6 +29,8 @@ impl SymbolTable {
 	pub fn new() -> SymbolTable {
 		SymbolTable {
 			items: Vec::new(),
+			argument_offset: 0,
+			local_offset: 0,
 		}
 	}
 
@@ -56,9 +69,14 @@ impl SymbolTable {
 	/// Add a function to the `SymbolTable`.
 	///
 	///
-	pub fn push_function(&mut self, name: String) -> Result<(), String> {
+	pub fn push_function(&mut self, name: String) -> Result<(), CompilationError> {
 		if self.contains(name.clone()) {
-			Err(format!("Error: Function {:?} already defined", name))
+			Err(lookup_error!(
+				ErrorCode::E0400,
+				Location::end(),
+				"Error: Function {:?} already defined",
+				name
+			))
 		} else {
 			let symbol = Symbol::new(name, SymbolType::Function);
 			let item = SymbolItem::Symbol(symbol);
@@ -72,7 +90,7 @@ impl SymbolTable {
 	/// Add an argument to the `SymbolTable`.
 	///
 	///
-	pub fn push_argument(&mut self, name: String, path: VecDeque<usize>) -> Result<(), String> {
+	pub fn push_argument(&mut self, name: String, path: VecDeque<usize>) -> Result<usize, CompilationError> {
 		if path.len() > 0 {
 			let mut sub_path = path.clone();
 			let sub_index = sub_path.pop_front().unwrap();
@@ -83,14 +101,20 @@ impl SymbolTable {
 			}
 		} else {
 			if self.contains(name.clone()) {
-				Err(format!("Error: Argument {:?} already defined", name))
+				Err(lookup_error!(
+					ErrorCode::E0401,
+					Location::end(),
+					"Error: Argument {:?} already defined",
+					name
+				))
 			} else {
 				let symbol = Symbol::new(name, SymbolType::Argument);
 				let item = SymbolItem::Symbol(symbol);
 
 				self.items.push(item);
+				self.argument_offset += 1; // TODO: test this
 
-				Ok(())
+				Ok(self.argument_offset - 1)
 			}
 		}
 	}
@@ -98,7 +122,7 @@ impl SymbolTable {
 	/// Add a local variable to the `SymbolTable`.
 	///
 	///
-	pub fn push_local(&mut self, name: String, path: VecDeque<usize>) -> Result<(), String> {
+	pub fn push_local(&mut self, name: String, path: VecDeque<usize>) -> Result<usize, CompilationError> {
 		if path.len() > 0 {
 			let mut sub_path = path.clone();
 			let sub_index = sub_path.pop_front().unwrap();
@@ -109,14 +133,20 @@ impl SymbolTable {
 			}
 		} else {
 			if self.contains(name.clone()) {
-				Err(format!("Error: Local variable {:?} already defined", name))
+				Err(lookup_error!(
+					ErrorCode::E0401,
+					Location::end(),
+					"Error: Local variable {:?} already defined",
+					name
+				))
 			} else {
 				let symbol = Symbol::new(name, SymbolType::Local);
 				let item = SymbolItem::Symbol(symbol);
 
 				self.items.push(item);
+				self.local_offset += 1; // TODO: test this
 
-				Ok(())
+				Ok(self.local_offset - 1)
 			}
 		}
 	}
@@ -194,6 +224,7 @@ pub enum SymbolType {
 	Function,
 	Argument,
 	Local,
+	Unknown,
 }
 
 
@@ -212,6 +243,8 @@ mod test {
 					symbol_type: SymbolType::Function,
 				})
 			],
+			argument_offset: 0,
+			local_offset: 0,
 		};
 
 		let name = "example".to_string();
@@ -246,8 +279,12 @@ mod test {
 							symbol_type: SymbolType::Argument,
 						})
 					],
+					argument_offset: 1,
+					local_offset: 0,
 				})
 			],
+			argument_offset: 0,
+			local_offset: 0,
 		};
 
 		let mut path = VecDeque::new();
@@ -290,8 +327,12 @@ mod test {
 							symbol_type: SymbolType::Local,
 						})
 					],
+					argument_offset: 0,
+					local_offset: 1,
 				})
 			],
+			argument_offset: 0,
+			local_offset: 0,
 		};
 
 		let mut path = VecDeque::new();
@@ -337,8 +378,12 @@ mod test {
 							symbol_type: SymbolType::Local,
 						}),
 					],
+					argument_offset: 0,
+					local_offset: 0,
 				}),
 			],
+			argument_offset: 0,
+			local_offset: 0,
 		};
 
 		let mut path: VecDeque<usize> = VecDeque::new();

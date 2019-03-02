@@ -4,31 +4,35 @@
 
 use std::iter::Peekable;
 
-use lexer::lexer::Lexer;
-use lexer::location::Location;
-use lexer::token::TokenType;
-
-use parser::ast::{
-	Module,
-	Definition,
-	Import,
-	Struct,
-	Enum,
-	Function,
-	Identifier,
-	Parameter,
-	Type,
-	Block,
-	Statement,
-	If,
-	Let,
-	Expression,
-	Operator,
-	Literal,
-	StructField,
+use crate::location::Location;
+use crate::lexer::{
+	lexer::Lexer,
+	token::TokenType,
 };
-use parser::error::Error;
-use parser::precedence::Precedence;
+
+use crate::parser::{
+	ast::{
+		Module,
+		Definition,
+		Import,
+		Struct,
+		Enum,
+		Function,
+		Identifier,
+		Parameter,
+		Type,
+		Block,
+		Statement,
+		If,
+		Let,
+		Expression,
+		Operator,
+		Literal,
+		StructField,
+	},
+	error::Error,
+	precedence::Precedence,
+};
 
 macro_rules! error {
 	($msg:expr) => (
@@ -971,7 +975,9 @@ mod test {
 							param!(
 								"a",
 								Type::Custom(
-									ident!("Test")
+									Box::new(
+										ident!("Test")
+									)
 								)
 							),
 						]
@@ -1002,11 +1008,13 @@ mod test {
 							param!(
 								"a",
 								Type::Custom(
-									ident_with_path(
-										"Test",
-										vec![
-											ident!("std")
-										]
+									Box::new(
+										ident_with_path(
+											"Test",
+											vec![
+												ident!("std")
+											]
+										)
 									)
 								)
 							),
@@ -1108,7 +1116,9 @@ mod test {
 						arguments: vec![],
 						return_type: Some(
 							Type::Custom(
-								ident!("Test")
+								Box::new(
+									ident!("Test")
+								)
 							)
 						),
 						body: Block {
@@ -1140,11 +1150,13 @@ mod test {
 						arguments: vec![],
 						return_type: Some(
 							Type::Custom(
-								ident_with_path(
-									"Test",
-									vec![
-										ident!("std")
-									]
+								Box::new(
+									ident_with_path(
+										"Test",
+										vec![
+											ident!("std")
+										]
+									)
 								)
 							)
 						),

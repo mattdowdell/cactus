@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use lexer::location::Location;
+use crate::location::Location;
 
 
 /// A representation of a token type.
@@ -213,7 +213,7 @@ impl Token {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::location::Location;
+	/// use cactus::location::Location;
 	/// use cactus::lexer::token::{Token, TokenType};
 	///
 	/// let location = Location::new(1, 1);
@@ -237,7 +237,7 @@ impl Token {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::location::Location;
+	/// use cactus::location::Location;
 	/// use cactus::lexer::token::{Token, TokenType};
 	///
 	/// let location = Location::new(1, 1);
@@ -263,7 +263,7 @@ impl Token {
 	///
 	/// # Example
 	/// ```
-	/// use cactus::lexer::location::Location;
+	/// use cactus::location::Location;
 	/// use cactus::lexer::token::{Token, TokenType};
 	///
 	/// let location = Location::new(1, 1);

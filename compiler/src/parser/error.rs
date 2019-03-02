@@ -4,7 +4,7 @@
 
 use std::fmt;
 
-use lexer::location::Location;
+use crate::location::Location;
 
 
 ///
