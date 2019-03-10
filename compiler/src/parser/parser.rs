@@ -1,60 +1,63 @@
+//! The parser for Cactus.
 //!
-//!
-//!
+//! The parser is designed to mirror the grammar for Cactus. Starting from the definitions, it
+//! then parses statements and then expressions where appropriate. Each definition, statement and
+//! expressions has it's own function within the parser and is responsible for consuming all of the
+//! tokens required for the grammar rule.
 
 use std::iter::Peekable;
 
-use crate::location::Location;
-use crate::lexer::{
-	lexer::Lexer,
-	token::TokenType,
-};
-
-use crate::parser::{
-	ast::{
-		Module,
-		Definition,
-		Import,
-		Struct,
-		Enum,
-		Function,
-		Identifier,
-		Parameter,
-		Type,
-		Block,
-		Statement,
-		If,
-		Let,
-		Expression,
-		Operator,
-		Literal,
-		StructField,
+use crate::{
+	error::{
+		CompilationError,
+		ErrorCode,
+		ErrorType,
 	},
-	error::Error,
-	precedence::Precedence,
+	location::Location,
+	lexer::{
+		lexer::Lexer,
+		token::TokenType,
+	},
+	parser::{
+		ast::{
+			Module,
+			Definition,
+			Import,
+			Struct,
+			Enum,
+			Function,
+			Identifier,
+			Parameter,
+			Type,
+			Block,
+			Statement,
+			If,
+			Let,
+			Expression,
+			Operator,
+			Literal,
+			StructField,
+		},
+		precedence::Precedence,
+	},
 };
 
-macro_rules! error {
-	($msg:expr) => (
-		Error::new($msg, Location::end())
-	);
-	($msg:expr, $location:expr) => (
-		Error::new($msg, $location)
-	);
-}
 
-///
-///
-///
+/// The parser implementation.
 pub struct Parser<'a> {
 	lexer: Peekable<Lexer<'a>>,
-	errors: Vec<Error>
+	errors: Vec<CompilationError>
 }
 
 impl<'a> Parser<'a> {
+	/// Create a new instance of a `Parser`.
 	///
+	/// # Example
+	/// ```
+	/// use cactus::parser::parser::Parser;
 	///
-	///
+	/// let parser = Parser::new("fn example() { return 1; }");
+	/// ```
 	pub fn new(input: &'a str) -> Parser<'a> {
 		Parser {
 			lexer: Lexer::new(input).peekable(),
@@ -62,10 +65,26 @@ impl<'a> Parser<'a> {
 		}
 	}
 
+	/// Parse the input into a module.
 	///
+	/// # Example
+	/// ```
+	/// use cactus::parser::parser::Parser;
 	///
+	/// let mut parser = Parser::new("fn example() { return 1; }");
 	///
-	pub fn parse(&mut self) -> Result<Module, Vec<Error>> {
+	/// match parser.parse() {
+	/// 	Ok(module) => {
+	///	        // do something with module here
+	///     },
+	///     Err(errors) => {
+	///         for error in errors.iter() {
+	///             eprintln!("{}", error);
+	///         }
+	///     },
+	/// }
+	/// ```
+	pub fn parse(&mut self) -> Result<Module, Vec<CompilationError>> {
 		let module = self.parse_module();
 
 		if self.errors.len() > 0 {
@@ -80,10 +99,13 @@ impl<'a> Parser<'a> {
 
 	// A helper method that checks if the next token is the given type and consumes it if so.
 	// If the next token is not the given type an error will be returned instead.
-	fn expect_peek(&mut self, token_type: TokenType) -> Result<(), Error> {
+	fn expect_peek(&mut self, token_type: TokenType) -> Result<(), CompilationError> {
 		if self.lexer.peek().is_none() {
-			Err(error!(
-				format!("Unexpected end of file. Expected: {:?}", token_type)
+			Err(syntax_error!(
+				ErrorCode::E0005,
+				Location::end(),
+				"Unexpected end of file. Expected: {:?}",
+				token_type
 			))
 		} else {
 			if self.lexer.peek().unwrap().token_type == token_type {
@@ -92,10 +114,12 @@ impl<'a> Parser<'a> {
 			} else {
 				let token = self.lexer.peek().unwrap().clone();
 
-				Err(error!(
-					format!("Unexpected token type: {:?}. Expected {:?}.",
-						token.token_type, token_type),
-					token.location
+				Err(syntax_error!(
+					ErrorCode::E0006,
+					token.location,
+					"Unexpected token type: {:?}. Expected {:?}.",
+					token.token_type,
+					token_type
 				))
 			}
 		}
@@ -142,7 +166,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a definition from within a Cactus module.
-	fn parse_definition(&mut self) -> Result<Definition, Error> {
+	fn parse_definition(&mut self) -> Result<Definition, CompilationError> {
 		let token = self.lexer.next().unwrap();
 
 		match token.token_type {
@@ -155,16 +179,17 @@ impl<'a> Parser<'a> {
 			TokenType::Enum     => self.parse_enum_definition(),
 			TokenType::Function => self.parse_function_definition(),
 
-			_ => Err(error!(
-				format!("Unexpected token type: {:?}. Expected import, struct, enum or function",
-					token.token_type),
-				token.location
+			_ => Err(syntax_error!(
+				ErrorCode::E0006,
+				token.location,
+				"Unexpected token type: {:?}. Expected import, struct, enum or function",
+				token.token_type
 			)),
 		}
 	}
 
 	// Parse an import definition.
-	fn parse_import_definition(&mut self) -> Result<Definition, Error> {
+	fn parse_import_definition(&mut self) -> Result<Definition, CompilationError> {
 		let path = self.parse_import_identifier()?;
 
 		let import = Import::new(path);
@@ -172,7 +197,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a structure definition.
-	fn parse_struct_definition(&mut self) -> Result<Definition, Error> {
+	fn parse_struct_definition(&mut self) -> Result<Definition, CompilationError> {
 		let identifier = self.parse_identifier()?;
 
 		self.expect_peek(TokenType::LeftBrace)?;
@@ -186,7 +211,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse an enumeration definition.
-	fn parse_enum_definition(&mut self) -> Result<Definition, Error> {
+	fn parse_enum_definition(&mut self) -> Result<Definition, CompilationError> {
 		let identifier = self.parse_identifier()?;
 
 		self.expect_peek(TokenType::LeftBrace)?;
@@ -200,7 +225,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a function definition.
-	fn parse_function_definition(&mut self) -> Result<Definition, Error> {
+	fn parse_function_definition(&mut self) -> Result<Definition, CompilationError> {
 		let identifier = self.parse_identifier()?;
 
 		self.expect_peek(TokenType::LeftParen)?;
@@ -224,7 +249,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// A helper for parsing multiple identifiers in one go.
-	fn parse_identifier_list(&mut self) -> Result<Vec<Identifier>, Error> {
+	fn parse_identifier_list(&mut self) -> Result<Vec<Identifier>, CompilationError> {
 		let mut identifiers: Vec<Identifier> = Vec::new();
 
 		loop {
@@ -254,7 +279,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse an imported identifier, e.g. `example::example` or `example`.
-	fn parse_import_identifier(&mut self) -> Result<Identifier, Error> {
+	fn parse_import_identifier(&mut self) -> Result<Identifier, CompilationError> {
 		let mut path: Vec<Identifier> = Vec::new();
 
 		loop {
@@ -284,21 +309,24 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse an identifier, e.g. `example`.
-	fn parse_identifier(&mut self) -> Result<Identifier, Error> {
+	fn parse_identifier(&mut self) -> Result<Identifier, CompilationError> {
 		let token = self.lexer.next();
 
 		if token.is_none() {
-			Err(error!(
-				"Unexpected end of file. Expected: identifier.".to_string()
+			Err(syntax_error!(
+				ErrorCode::E0005,
+				Location::end(),
+				"Unexpected end of file. Expected: identifier."
 			))
 		} else {
 			let token = token.unwrap();
 
 			if token.token_type != TokenType::Identifier {
-				Err(error!(
-					format!("Unexpected token type: {:?}. Expected: identifier.",
-						token.token_type),
-					token.location
+				Err(syntax_error!(
+					ErrorCode::E0006,
+					token.location,
+					"Unexpected token type: {:?}. Expected: identifier.",
+					token.token_type
 				))
 			} else {
 				Ok(Identifier::new(token.value.unwrap()))
@@ -307,7 +335,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// A helper for parsing multiple parameters in one go.
-	fn parse_parameter_list(&mut self) -> Result<Vec<Parameter>, Error> {
+	fn parse_parameter_list(&mut self) -> Result<Vec<Parameter>, CompilationError> {
 		let mut parameters: Vec<Parameter> = Vec::new();
 
 		loop {
@@ -339,21 +367,24 @@ impl<'a> Parser<'a> {
 	// Parse a parameter.
 	//
 	// Parameters consist of an identifier and a type separated by a colon.
-	fn parse_parameter(&mut self) -> Result<Parameter, Error> {
+	fn parse_parameter(&mut self) -> Result<Parameter, CompilationError> {
 		let token = self.lexer.next();
 
 		if token.is_none() {
-			Err(error!(
-				"Unexpected end of file. Expected: identifier.".to_string()
+			Err(syntax_error!(
+				ErrorCode::E0005,
+				Location::end(),
+				"Unexpected end of file. Expected: identifier."
 			))
 		} else {
 			let token = token.unwrap();
 
 			if token.token_type != TokenType::Identifier {
-				Err(error!(
-					format!("Unexpected token type: {:?}. Expected: identifier.",
-						token.token_type),
-					token.location
+				Err(syntax_error!(
+					ErrorCode::E0006,
+					token.location,
+					"Unexpected token type: {:?}. Expected: identifier.",
+					token.token_type
 				))
 			} else {
 				let ident = Identifier::new(token.value.unwrap());
@@ -371,10 +402,12 @@ impl<'a> Parser<'a> {
 	//
 	// Types may be a primitive or an imported identifier in which case the type must be for a
 	// structure or enumeration.
-	fn parse_type(&mut self) -> Result<Type, Error> {
+	fn parse_type(&mut self) -> Result<Type, CompilationError> {
 		if self.lexer.peek().is_none() {
-			Err(error!(
-				"Unexpected end of file. Expected: type.".to_string()
+			Err(syntax_error!(
+				ErrorCode::E0005,
+				Location::end(),
+				"Unexpected end of file. Expected: type."
 			))
 		} else {
 			match self.lexer.peek().unwrap().token_type {
@@ -395,7 +428,7 @@ impl<'a> Parser<'a> {
 	// Parse a block.
 	//
 	// A block is a series of statements wrapped in braces, e.g. `{ ... }`.
-	fn parse_block(&mut self) -> Result<Block, Error> {
+	fn parse_block(&mut self) -> Result<Block, CompilationError> {
 		let mut block = Block::new();
 
 		self.expect_peek(TokenType::LeftBrace)?;
@@ -413,10 +446,12 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a statement.
-	fn parse_statement(&mut self) -> Result<Statement, Error> {
+	fn parse_statement(&mut self) -> Result<Statement, CompilationError> {
 		if self.lexer.peek().is_none() {
-			Err(error!(
-				"Unexpected end of file. Expected: statement".to_string()
+			Err(syntax_error!(
+				ErrorCode::E0005,
+				Location::end(),
+				"Unexpected end of file. Expected: statement"
 			))
 		} else {
 			let stmt = match self.lexer.peek().unwrap().token_type {
@@ -434,7 +469,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a let statement.
-	fn parse_let_statement(&mut self) -> Result<Statement, Error> {
+	fn parse_let_statement(&mut self) -> Result<Statement, CompilationError> {
 		self.expect_peek(TokenType::Let)?;
 
 		let ident = self.parse_identifier()?;
@@ -454,7 +489,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a return statement.
-	fn parse_return_statement(&mut self) -> Result<Statement, Error> {
+	fn parse_return_statement(&mut self) -> Result<Statement, CompilationError> {
 		self.expect_peek(TokenType::Return)?;
 
 		let expr = self.parse_expression(Precedence::Lowest)?;
@@ -469,7 +504,7 @@ impl<'a> Parser<'a> {
 	// If statements consist of an initial condition expression and consequence block. They may
 	// also contain multiple other conditions and consequences, e.g. `elif` and an optional
 	// alternative block, e.g. `else`.
-	fn parse_if_statement(&mut self) -> Result<Statement, Error> {
+	fn parse_if_statement(&mut self) -> Result<Statement, CompilationError> {
 		self.expect_peek(TokenType::If)?;
 
 		let condition = self.parse_expression(Precedence::Lowest)?;
@@ -499,7 +534,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a loop statement.
-	fn parse_loop_statement(&mut self) -> Result<Statement, Error> {
+	fn parse_loop_statement(&mut self) -> Result<Statement, CompilationError> {
 		self.expect_peek(TokenType::Loop)?;
 
 		let block = self.parse_block()?;
@@ -508,7 +543,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a break statement.
-	fn parse_break_statement(&mut self) -> Result<Statement, Error> {
+	fn parse_break_statement(&mut self) -> Result<Statement, CompilationError> {
 		self.expect_peek(TokenType::Break)?;
 		self.expect_peek(TokenType::Semicolon)?;
 
@@ -516,7 +551,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a continue statement.
-	fn parse_continue_statement(&mut self) -> Result<Statement, Error> {
+	fn parse_continue_statement(&mut self) -> Result<Statement, CompilationError> {
 		self.expect_peek(TokenType::Continue)?;
 		self.expect_peek(TokenType::Semicolon)?;
 
@@ -526,7 +561,7 @@ impl<'a> Parser<'a> {
 	// Parse an expression statement.
 	//
 	//cAn expressions statement is simply an expression followed by a semicolon.
-	fn parse_expr_statement(&mut self) -> Result<Statement, Error> {
+	fn parse_expr_statement(&mut self) -> Result<Statement, CompilationError> {
 		let expr = self.parse_expression(Precedence::Lowest)?;
 
 		self.expect_peek(TokenType::Semicolon)?;
@@ -535,10 +570,12 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse an expression.
-	fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, Error> {
+	fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, CompilationError> {
 		if self.lexer.peek().is_none() {
-			Err(error!(
-				"Unexpected end of file. Expected: expression".to_string()
+			Err(syntax_error!(
+				ErrorCode::E0005,
+				Location::end(),
+				"Unexpected end of file. Expected: expression"
 			))
 		} else {
 			let mut left = match self.lexer.peek().unwrap().token_type {
@@ -565,12 +602,11 @@ impl<'a> Parser<'a> {
 				_ => {
 					let token = self.lexer.next().unwrap();
 
-					return Err(error!(
-						format!(
-							"Unexpected token type: {:?}. Expected one of: Identifier, Integer, Float, 'true', 'false', 'not', '-', '~', '(' or '{{'.",
-							token.token_type
-						),
-						token.location
+					return Err(syntax_error!(
+						ErrorCode::E0006,
+						token.location,
+						"Unexpected token type: {:?}. Expected one of: Identifier, Integer, Float, 'true', 'false', 'not', '-', '~', '(' or '{{'.",
+						token.token_type
 					));
 				}
 			};
@@ -602,14 +638,14 @@ impl<'a> Parser<'a> {
 	// Parse a literal expression.
 	//
 	// Literals may be integers, floating-point number or the booleans `true` and `false`.
-	fn parse_literal_expression(&mut self) -> Result<Expression, Error> {
+	fn parse_literal_expression(&mut self) -> Result<Expression, CompilationError> {
 		let token = self.lexer.next().unwrap();
 		let literal = Literal::from_token(token)?;
 		Ok(Expression::Literal(literal))
 	}
 
 	// Parse an identifier expression.
-	fn parse_identifier_expression(&mut self) -> Result<Expression, Error> {
+	fn parse_identifier_expression(&mut self) -> Result<Expression, CompilationError> {
 		let ident = self.parse_import_identifier()?;
 		Ok(Expression::Identifier(ident))
 	}
@@ -617,7 +653,7 @@ impl<'a> Parser<'a> {
 	// Parse a struct expression.
 	//
 	// A struct expression is an initialisation of a struct.
-	fn parse_struct_expression(&mut self) -> Result<Expression, Error> {
+	fn parse_struct_expression(&mut self) -> Result<Expression, CompilationError> {
 		self.expect_peek(TokenType::LeftBrace)?;
 		let mut struct_fields: Vec<StructField> = Vec::new();
 
@@ -644,7 +680,7 @@ impl<'a> Parser<'a> {
 	// Parse a prefix expression.
 	//
 	// A prefix expression is an expression preceded by a prefix operator, e.g. `~`, `-` or `not`.
-	fn parse_prefix_expression(&mut self) -> Result<Expression, Error> {
+	fn parse_prefix_expression(&mut self) -> Result<Expression, CompilationError> {
 		let token = self.lexer.next().unwrap();
 		let operator = Operator::new_prefix(token)?;
 		let expr = self.parse_expression(Precedence::Prefix)?;
@@ -655,14 +691,16 @@ impl<'a> Parser<'a> {
 	// Parse an infix expression.
 	//
 	// An infix expression is two expressions separated by an infix operator, e.g. `+`, `-`, etc.
-	fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, Error> {
+	fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, CompilationError> {
 		let token = self.lexer.next().unwrap();
 		let operator = Operator::new_infix(token)?;
 
 
 		if self.lexer.peek().is_none() {
-			return Err(error!(
-				"Unexpected end of file. Expected: expression.".to_string()
+			return Err(syntax_error!(
+				ErrorCode::E0005,
+				Location::end(),
+				"Unexpected end of file. Expected: expression."
 			));
 		} else {
 			let precedence = self.peek_precedence();
@@ -675,7 +713,7 @@ impl<'a> Parser<'a> {
 	// Parse a grouped expression.
 	//
 	// A grouped expression is an expression wrapped in parentheses, e.g. `( ... )`.
-	fn parse_grouped_expression(&mut self) -> Result<Expression, Error> {
+	fn parse_grouped_expression(&mut self) -> Result<Expression, CompilationError> {
 		self.expect_peek(TokenType::LeftParen)?;
 
 		let expr = self.parse_expression(Precedence::Lowest)?;
@@ -686,7 +724,7 @@ impl<'a> Parser<'a> {
 	}
 
 	// Parse a function call expression.
-	fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, Error> {
+	fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, CompilationError> {
 		let mut args: Vec<Expression> = Vec::new();
 
 		self.expect_peek(TokenType::LeftParen)?;
@@ -704,8 +742,10 @@ impl<'a> Parser<'a> {
 			}
 
 			if self.lexer.peek().is_none() {
-				return Err(error!(
-					"Unexpected end of file. Expected one of: ')', ','.".to_string()
+				return Err(syntax_error!(
+					ErrorCode::E0005,
+					Location::end(),
+					"Unexpected end of file. Expected one of: ')', ','."
 				));
 			} else {
 				if self.lexer.peek().unwrap().token_type == TokenType::RightParen {
@@ -714,18 +754,22 @@ impl<'a> Parser<'a> {
 
 				let token = self.lexer.next().unwrap();
 
-				return Err(error!(
-					format!("Unexpected token type: {:?}. Expected one of: ')', ','.",
-						token.token_type),
-					token.location
+				return Err(syntax_error!(
+					ErrorCode::E0006,
+					token.location,
+					"Unexpected token type: {:?}. Expected one of: ')', ','.",
+					token.token_type
 				));
 			}
 		}
 
 		match left {
 			Expression::Identifier(ident) => Ok(Expression::Call(ident, args)),
-			_ => Err(error!(
-				format!("Unexpected expression: {:?}. Expected: identifier.", left)
+			_ => Err(syntax_error!(
+				ErrorCode::E0007,
+				Location::end(),
+				"Unexpected expression: {:?}. Expected: identifier.",
+				left
 			)),
 		}
 	}

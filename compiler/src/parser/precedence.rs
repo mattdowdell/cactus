@@ -4,8 +4,18 @@
 //! variants of `Precedence` directly. The code for managing prefix operator precedence is baked
 //! into the parser to avoid conflict between prefix and infix operators.
 
-use crate::lexer::token::{Token, TokenType};
-use crate::parser::error::Error;
+
+use crate::{
+	error::{
+		CompilationError,
+		ErrorCode,
+		ErrorType,
+	},
+	lexer::token::{
+		Token,
+		TokenType,
+	},
+};
 
 
 /// Operator precedences for Cactus.
@@ -63,7 +73,7 @@ impl Precedence {
 	/// let precedence = Precedence::from_token(token);
 	/// assert!(precedence.is_err());
 	/// ```
-	pub fn from_token(token: Token) -> Result<Precedence, Error> {
+	pub fn from_token(token: Token) -> Result<Precedence, CompilationError> {
 		match token.token_type {
 			TokenType::Assign
 			| TokenType::PlusAssign
@@ -106,10 +116,11 @@ impl Precedence {
 			TokenType::LeftParen
 			| TokenType::Dot => Ok(Precedence::Call),
 
-			_ => Err(Error::new(
-				format!("Unable to convert TokenType to Precedence: {:?}.",
-					token.token_type),
-				token.location
+			_ => Err(syntax_error!(
+				ErrorCode::E0002,
+				token.location,
+				"Unable to convert TokenType to Precedence: {:?}",
+				token.token_type
 			)),
 		}
 	}

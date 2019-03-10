@@ -1,0 +1,19 @@
+
+
+fn foo() -> i32 { return 5; }
+
+fn bar(a: i32, b: i32) {}
+
+fn main() {
+	let x: i32 = foo();
+
+	if 5 <= 10 {}
+
+	not true;
+
+	1 + 5;
+
+	true and false;
+
+	bar(4, 5);
+}

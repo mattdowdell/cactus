@@ -19,7 +19,7 @@ macro_rules! syntax_error {
 	);
 	($code:path, $location:expr, $message:tt, $($arg:expr),+) => (
 		CompilationError::new($code,
-			ErrorType::NotImplementedError,
+			ErrorType::SyntaxError,
 			$location,
 			format!($message, $($arg),+))
 	);
@@ -55,7 +55,7 @@ macro_rules! lookup_error {
 	);
 	($code:path, $location:expr, $message:tt, $($arg:expr),+) => (
 		CompilationError::new($code,
-			ErrorType::NotImplementedError,
+			ErrorType::LookupError,
 			$location,
 			format!($message, $($arg),+))
 	);
@@ -105,15 +105,27 @@ pub enum ErrorCode {
 	// syntax errors
 	E0000, // break statement not within loop
 	E0001, // continue statement not within loop
+	E0002, // unable to convert token type to precedence
+	E0003, // unable to convert token type to prefix operator
+	E0004, // unable to convert token type to infix operator
+	E0005, // unexpected end of file
+	E0006, // unexpected token type
+	E0007, // non-identifier used for call expression
 
 	// type errors
 	E0200, // let statement value does not match type hint
-	E0201, // non-boolean expression if condition expression
+	E0201, // non-boolean expression in if condition expression
+	E0202, // invalid type for prefix operator
+	E0203, // mismatched types for lhs and rhs of infix operator
+	E0204, // invalid type for infix operator
+	E0205, // mismatched type for function argument
+	E0206, // incorrect number of arguments for function call
 
 	// lookup errors
 	E0400, // function already defined
 	E0401, // argument already defined
 	E0402, // local already defined
+	E0403, // symbol used before it was defined
 
 	// import errors
 	// E0600,
@@ -122,9 +134,14 @@ pub enum ErrorCode {
 	E0800, // type checking for custom types
 	E0801, // imports
 	E0802, // elif in if statements
+	E0803, // analysing struct initialisation expressions
 
 	// internal errors
 	E1000, // type_checker::TypeHint::from_ast_type for ast::Type::Unknown
+	E1001, // ast::Operator::allow_prefix for type_checker::TypeHint::{None, Unknown}
+	E1002, // ast::Operator::assignment_to_infix for non assignment operators
+	E1003, // ast::Literal::from_token for non-literal token type
+	E1004, // ast::Type::from_token for non-type token type
 }
 
 ///

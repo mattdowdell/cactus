@@ -11,6 +11,7 @@ use crate::{
 		ErrorType,
 	},
 	location::Location,
+	analyser::type_checker::TypeHint,
 };
 
 
@@ -69,16 +70,16 @@ impl SymbolTable {
 	/// Add a function to the `SymbolTable`.
 	///
 	///
-	pub fn push_function(&mut self, name: String) -> Result<(), CompilationError> {
+	pub fn push_function(&mut self, name: String, return_type: TypeHint) -> Result<(), CompilationError> {
 		if self.contains(name.clone()) {
 			Err(lookup_error!(
 				ErrorCode::E0400,
 				Location::end(),
-				"Error: Function {:?} already defined",
+				"Function {:?} already defined",
 				name
 			))
 		} else {
-			let symbol = Symbol::new(name, SymbolType::Function);
+			let symbol = Symbol::new(name, SymbolType::Function, return_type);
 			let item = SymbolItem::Symbol(symbol);
 
 			self.items.push(item);
@@ -90,13 +91,13 @@ impl SymbolTable {
 	/// Add an argument to the `SymbolTable`.
 	///
 	///
-	pub fn push_argument(&mut self, name: String, path: VecDeque<usize>) -> Result<usize, CompilationError> {
+	pub fn push_argument(&mut self, name: String, path: VecDeque<usize>, type_hint: TypeHint) -> Result<usize, CompilationError> {
 		if path.len() > 0 {
 			let mut sub_path = path.clone();
 			let sub_index = sub_path.pop_front().unwrap();
 
 			match self.items[sub_index] {
-				SymbolItem::Table(ref mut table) => table.push_argument(name, sub_path),
+				SymbolItem::Table(ref mut table) => table.push_argument(name, sub_path, type_hint),
 				_ => panic!("Internal error: Expected table at index: {:?}", sub_index),
 			}
 		} else {
@@ -104,11 +105,11 @@ impl SymbolTable {
 				Err(lookup_error!(
 					ErrorCode::E0401,
 					Location::end(),
-					"Error: Argument {:?} already defined",
+					"Argument {:?} already defined",
 					name
 				))
 			} else {
-				let symbol = Symbol::new(name, SymbolType::Argument);
+				let symbol = Symbol::new(name, SymbolType::Argument, type_hint);
 				let item = SymbolItem::Symbol(symbol);
 
 				self.items.push(item);
@@ -122,13 +123,13 @@ impl SymbolTable {
 	/// Add a local variable to the `SymbolTable`.
 	///
 	///
-	pub fn push_local(&mut self, name: String, path: VecDeque<usize>) -> Result<usize, CompilationError> {
+	pub fn push_local(&mut self, name: String, path: VecDeque<usize>, type_hint: TypeHint) -> Result<usize, CompilationError> {
 		if path.len() > 0 {
 			let mut sub_path = path.clone();
 			let sub_index = sub_path.pop_front().unwrap();
 
 			match self.items[sub_index] {
-				SymbolItem::Table(ref mut table) => table.push_local(name, sub_path),
+				SymbolItem::Table(ref mut table) => table.push_local(name, sub_path, type_hint),
 				_ => panic!("Internal error: Expected table at index: {:?}", sub_index),
 			}
 		} else {
@@ -136,11 +137,11 @@ impl SymbolTable {
 				Err(lookup_error!(
 					ErrorCode::E0401,
 					Location::end(),
-					"Error: Local variable {:?} already defined",
+					"Local variable {:?} already defined",
 					name
 				))
 			} else {
-				let symbol = Symbol::new(name, SymbolType::Local);
+				let symbol = Symbol::new(name, SymbolType::Local, type_hint);
 				let item = SymbolItem::Symbol(symbol);
 
 				self.items.push(item);
@@ -154,12 +155,12 @@ impl SymbolTable {
 	///
 	///
 	///
-	pub fn lookup_symbol(&self, name: String, path: VecDeque<usize>, is_function: bool) -> bool {
+	pub fn lookup_symbol(&self, name: String, path: VecDeque<usize>, is_function: bool) -> Result<TypeHint, CompilationError> {
 		for (index, item) in self.items.iter().enumerate() {
 			match item {
 				SymbolItem::Symbol(symbol) => {
 					if symbol.name == name {
-						return true;
+						return Ok(symbol.type_hint);
 					}
 				}
 				SymbolItem::Table(sub_table) => {
@@ -173,15 +174,18 @@ impl SymbolTable {
 						let mut sub_path = path.clone();
 						sub_path.pop_front();
 
-						if sub_table.lookup_symbol(name.clone(), sub_path, false) {
-							return true;
-						}
+						return sub_table.lookup_symbol(name.clone(), sub_path, false);
 					}
 				}
 			}
 		}
 
-		return false;
+		return Err(lookup_error!(
+			ErrorCode::E0403,
+			Location::end(),
+			"Symbol {:?} was used before it was defined",
+			name
+		));
 	}
 }
 
@@ -202,16 +206,18 @@ pub enum SymbolItem {
 pub struct Symbol {
 	name: String,
 	symbol_type: SymbolType,
+	type_hint: TypeHint,
 }
 
 impl Symbol {
 	///
 	///
 	///
-	pub fn new(name: String, symbol_type: SymbolType) -> Symbol {
+	pub fn new(name: String, symbol_type: SymbolType, type_hint: TypeHint) -> Symbol {
 		Symbol {
 			name: name,
 			symbol_type: symbol_type,
+			type_hint: type_hint,
 		}
 	}
 }
@@ -241,6 +247,7 @@ mod test {
 				SymbolItem::Symbol(Symbol {
 					name: "example".to_string(),
 					symbol_type: SymbolType::Function,
+					type_hint: TypeHint::Int32,
 				})
 			],
 			argument_offset: 0,
@@ -248,7 +255,7 @@ mod test {
 		};
 
 		let name = "example".to_string();
-		let res = table.push_function(name);
+		let res = table.push_function(name, TypeHint::Int32);
 
 		assert!(res.is_ok());
 		assert_eq!(table, expected);
@@ -259,10 +266,10 @@ mod test {
 	fn test_push_function_redefined() {
 		let mut table = SymbolTable::new();
 
-		let res = table.push_function("example".to_string());
+		let res = table.push_function("example".to_string(), TypeHint::Int32);
 		assert!(res.is_ok());
 
-		let res = table.push_function("example".to_string());
+		let res = table.push_function("example".to_string(), TypeHint::Int32);
 		assert!(res.is_err());
 	}
 
@@ -277,6 +284,7 @@ mod test {
 						SymbolItem::Symbol(Symbol {
 							name: "example".to_string(),
 							symbol_type: SymbolType::Argument,
+							type_hint: TypeHint::Int32,
 						})
 					],
 					argument_offset: 1,
@@ -292,7 +300,7 @@ mod test {
 		path.push_back(sub_table_index);
 
 		let name = "example".to_string();
-		let res = table.push_argument(name, path);
+		let res = table.push_argument(name, path, TypeHint::Int32);
 
 		assert!(res.is_ok());
 		assert_eq!(table, expected);
@@ -307,10 +315,10 @@ mod test {
 		let sub_table_index = table.sub_table();
 		path.push_back(sub_table_index);
 
-		let res = table.push_argument("example".to_string(), path.clone());
+		let res = table.push_argument("example".to_string(), path.clone(), TypeHint::Int32);
 		assert!(res.is_ok());
 
-		let res = table.push_argument("example".to_string(), path.clone());
+		let res = table.push_argument("example".to_string(), path.clone(), TypeHint::Int32);
 		assert!(res.is_err());
 	}
 
@@ -325,6 +333,7 @@ mod test {
 						SymbolItem::Symbol(Symbol {
 							name: "example".to_string(),
 							symbol_type: SymbolType::Local,
+							type_hint: TypeHint::Int32,
 						})
 					],
 					argument_offset: 0,
@@ -340,7 +349,7 @@ mod test {
 		path.push_back(sub_table_index);
 
 		let name = "example".to_string();
-		let res = table.push_local(name, path);
+		let res = table.push_local(name, path, TypeHint::Int32);
 
 		assert!(res.is_ok());
 		assert_eq!(table, expected);
@@ -355,10 +364,10 @@ mod test {
 		let sub_table_index = table.sub_table();
 		path.push_back(sub_table_index);
 
-		let res = table.push_local("example".to_string(), path.clone());
+		let res = table.push_local("example".to_string(), path.clone(), TypeHint::Int32);
 		assert!(res.is_ok());
 
-		let res = table.push_local("example".to_string(), path.clone());
+		let res = table.push_local("example".to_string(), path.clone(), TypeHint::Int32);
 		assert!(res.is_err());
 	}
 
@@ -370,12 +379,14 @@ mod test {
 				SymbolItem::Symbol(Symbol {
 					name: "example".to_string(),
 					symbol_type: SymbolType::Local,
+					type_hint: TypeHint::Int32,
 				}),
 				SymbolItem::Table(SymbolTable {
 					items: vec![
 						SymbolItem::Symbol(Symbol {
 							name: "test".to_string(),
 							symbol_type: SymbolType::Local,
+							type_hint: TypeHint::Int32,
 						}),
 					],
 					argument_offset: 0,
@@ -389,17 +400,17 @@ mod test {
 		let mut path: VecDeque<usize> = VecDeque::new();
 
 		// without a path, only the function lookup should pass
-		assert!(table.lookup_symbol("example".to_string(), path.clone(), true));
-		assert!(!table.lookup_symbol("test".to_string(), path.clone(), false));
+		assert!(table.lookup_symbol("example".to_string(), path.clone(), true).is_ok());
+		assert!(table.lookup_symbol("test".to_string(), path.clone(), false).is_err());
 
 		path.push_back(1);
 
 		// with a path, both lookups should pass
-		assert!(table.lookup_symbol("example".to_string(), path.clone(), true));
-		assert!(table.lookup_symbol("test".to_string(), path.clone(), false));
+		assert!(table.lookup_symbol("example".to_string(), path.clone(), true).is_ok());
+		assert!(table.lookup_symbol("test".to_string(), path.clone(), false).is_ok());
 
 		// check that lookups for non-existent symbols fail
-		assert!(!table.lookup_symbol("not_found".to_string(), path.clone(), true));
-		assert!(!table.lookup_symbol("not_found".to_string(), path.clone(), false));
+		assert!(table.lookup_symbol("not_found".to_string(), path.clone(), true).is_err());
+		assert!(table.lookup_symbol("not_found".to_string(), path.clone(), false).is_err());
 	}
 }

@@ -21,16 +21,15 @@ use crate::{
 ///
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionSignature {
-	name: String,
-	arguments: Vec<TypeHint>,
-	return_type: TypeHint,
+	pub arguments: Vec<TypeHint>,
+	pub return_type: TypeHint,
 }
 
 impl FunctionSignature {
 	///
 	///
 	///
-	pub fn new(func: Function) -> Result<FunctionSignature, CompilationError> {
+	pub fn new(func: Function) -> Result<(String, FunctionSignature), CompilationError> {
 		let mut arguments: Vec<TypeHint> = Vec::new();
 
 		for arg in func.arguments.iter() {
@@ -41,11 +40,13 @@ impl FunctionSignature {
 
 		let return_type = TypeHint::from_optional_ast_type(func.return_type)?;
 
-		Ok(FunctionSignature {
-			name: func.identifier.name.clone(),
-			arguments: arguments,
-			return_type: return_type,
-		})
+		Ok((
+			func.identifier.name.clone(),
+			FunctionSignature {
+				arguments: arguments,
+				return_type: return_type,
+			}
+		))
 	}
 }
 

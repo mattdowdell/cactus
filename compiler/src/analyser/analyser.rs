@@ -2,7 +2,13 @@
 //!
 //!
 
-use std::collections::VecDeque;
+use std::{
+	collections::{
+		HashMap,
+		VecDeque
+	},
+	mem,
+};
 
 use crate::{
 	error::{
@@ -19,6 +25,8 @@ use crate::{
 		Block,
 		Statement,
 		Expression,
+		Literal,
+		Operator,
 	},
 	analyser::{
 		symbol::{
@@ -40,7 +48,7 @@ use crate::{
 pub struct Analyser {
 	ast: Ast,
 	errors: Vec<CompilationError>,
-	signatures: Vec<FunctionSignature>,
+	signatures: HashMap<String, FunctionSignature>,
 	symbol_table: SymbolTable,
 	table_path: VecDeque<usize>,
 }
@@ -53,7 +61,7 @@ impl Analyser {
 		Analyser {
 			ast: ast,
 			errors: Vec::new(),
-			signatures: Vec::new(),
+			signatures: HashMap::new(),
 			symbol_table: SymbolTable::new(),
 			table_path: VecDeque::new(),
 		}
@@ -112,14 +120,26 @@ impl Analyser {
 	fn analyse_function(&mut self, function: &mut Function) {
 		// add the function signature for type checking
 		match FunctionSignature::new(function.clone()) {
-			Ok(signature) => self.signatures.push(signature),
-			Err(error) => self.errors.push(error),
+			Ok((name, signature)) => {
+				self.signatures.insert(name, signature);
+			},
+			Err(error) => {
+				self.errors.push(error);
+			},
 		};
 
 		// add the function name for lookups
 		let name = function.identifier.name.clone();
+		let return_type = match TypeHint::from_optional_ast_type(function.return_type.clone()) {
+			Ok(type_hint) => type_hint,
+			Err(error) => {
+				self.errors.push(error);
+				// default to none as the return type
+				TypeHint::None
+			}
+		};
 
-		match self.symbol_table.push_function(name) {
+		match self.symbol_table.push_function(name, return_type) {
 			Ok(_) => {
 				function.identifier.set_symbol_type(SymbolType::Function);
 			},
@@ -132,8 +152,16 @@ impl Analyser {
 		for argument in function.arguments.iter_mut() {
 			let name = argument.identifier.name.clone();
 			let path = self.table_path.clone();
+			let type_hint = match TypeHint::from_ast_type(argument.type_hint.clone()) {
+				Ok(type_hint) => type_hint,
+				Err(error) => {
+					self.errors.push(error);
+					// default to i32 as the argument type
+					TypeHint::Int32
+				}
+			};
 
-			match self.symbol_table.push_argument(name, path) {
+			match self.symbol_table.push_argument(name, path, type_hint) {
 				Ok(offset) => {
 					argument.identifier.set_symbol_type(SymbolType::Argument);
 					argument.identifier.set_offset(offset);
@@ -157,8 +185,16 @@ impl Analyser {
 				Statement::Let(let_stmt) => {
 					let name = let_stmt.identifier.name.clone();
 					let path = self.table_path.clone();
+					let type_hint = match TypeHint::from_ast_type(let_stmt.type_hint.clone()) {
+						Ok(type_hint) => type_hint,
+						Err(error) => {
+							self.errors.push(error);
+							// default to i32 as the argument type
+							TypeHint::Int32
+						}
+					};
 
-					match self.symbol_table.push_local(name, path) {
+					match self.symbol_table.push_local(name, path, type_hint) {
 						Ok(offset) => {
 							let_stmt.identifier.set_symbol_type(SymbolType::Local);
 							let_stmt.identifier.set_offset(offset);
@@ -280,79 +316,142 @@ impl Analyser {
 	//
 	//
 	//
-	fn analyse_expression(&mut self, _expression: &mut Expression) -> Result<TypeHint, ()> {
-		unimplemented!()
-	}
-
-	/*
-	fn lookup_expression_symbols(&self, expression: Expression) -> Result<(), Vec<String>> {
-		let mut errors: Vec<String> = Vec::new();
-
+	fn analyse_expression(&mut self, expression: &mut Expression) -> Result<TypeHint, ()> {
 		match expression {
 			Expression::Identifier(ident) => {
 				let name = ident.name.clone();
 				let path = self.table_path.clone();
 
-				if !self.symbol_table.lookup_symbol(name, path, false) {
-					let error = format!("Error: Identifier {:?} used before it was defined.",
-						ident.name.clone());
-					errors.push(error);
-				};
-			},
-			Expression::Literal(_) => {},
-			Expression::Struct(_) => {
-				// TODO: check struct field name are valid
-				let error = "Error: Struct initialisation expressions are not implemented.".to_string();
-				errors.push(error);
-			},
-			Expression::Prefix(_, expr) => {
-				match self.lookup_expression_symbols(*expr.clone()) {
-					Ok(_) => {},
-					Err(mut sub_errors) => {
-						errors.append(&mut sub_errors);
-					},
-				};
-			},
-			Expression::Infix(left, _, right) => {
-				match self.lookup_expression_symbols(*left.clone()) {
-					Ok(_) => {},
-					Err(mut sub_errors) => {
-						errors.append(&mut sub_errors);
-					},
-				};
-
-				match self.lookup_expression_symbols(*right.clone()) {
-					Ok(_) => {},
-					Err(mut sub_errors) => {
-						errors.append(&mut sub_errors);
-					},
-				};
-			},
-			Expression::Call(ident, params) => {
-				if !self.symbol_table.lookup_symbol(ident.name.clone(), self.table_path.clone(), true) {
-					let error = format!("Error: Function {:?} used before it was defined.",
-						ident.name.clone());
-					errors.push(error);
-				};
-
-				for param_expr in params.iter() {
-					match self.lookup_expression_symbols(param_expr.clone()) {
-						Ok(_) => {},
-						Err(mut sub_errors) => {
-							errors.append(&mut sub_errors);
-						},
-					};
+				match self.symbol_table.lookup_symbol(name, path, false) {
+					Ok(type_hint) => Ok(type_hint),
+					Err(error) => {
+						self.errors.push(error);
+						Err(())
+					}
 				}
 			},
-		};
+			Expression::Literal(literal) => {
+				match literal {
+					Literal::Integer(_) => Ok(TypeHint::Int32),
+					Literal::Boolean(_) => Ok(TypeHint::Bool),
+					Literal::Float(_) => Ok(TypeHint::Float),
+				}
+			},
+			Expression::Struct(_) => {
+				let error = not_implemented_error!(
+					ErrorCode::E0803,
+					Location::end(),
+					"Struct initialisations are not yet supported for analysis"
+				);
 
-		if errors.len() > 0 {
-			Err(errors)
-		} else {
-			Ok(())
+				self.errors.push(error);
+				Err(())
+			},
+			Expression::Prefix(operator, sub_expr) => {
+				let type_hint = self.analyse_expression(sub_expr)?;
+
+				match operator.allow_prefix(type_hint) {
+					Ok(_) => Ok(type_hint),
+					Err(error) => {
+						self.errors.push(error);
+						Err(())
+					},
+				}
+			},
+			Expression::Infix(left_expr, operator, right_expr) => {
+				if operator.is_assignment() && *operator != Operator::Assign {
+					let sub_operator = match operator.assignment_to_infix() {
+						Ok(op) => Ok(op),
+						Err(error) => {
+							self.errors.push(error);
+							Err(())
+						}
+					}?;
+
+					let new_right_expr = Expression::Infix(
+						left_expr.clone(),
+						sub_operator,
+						right_expr.clone(),
+					);
+
+					mem::replace(right_expr, Box::new(new_right_expr));
+				}
+
+				let left_type = self.analyse_expression(left_expr)?;
+				let right_type = self.analyse_expression(right_expr)?;
+
+				match operator.allow_infix(left_type, right_type) {
+					Ok(type_hint) => Ok(type_hint),
+					Err(error) => {
+						self.errors.push(error);
+						Err(())
+					}
+				}
+			},
+			Expression::Call(ident, params) => {
+				let name = ident.name.clone();
+				let path = self.table_path.clone();
+
+				match self.symbol_table.lookup_symbol(name, path, true) {
+					Ok(_) => {},
+					Err(error) => {
+						self.errors.push(error);
+						return Err(())
+					}
+				};
+
+				let mut param_types: Vec<TypeHint> = Vec::new();
+
+				for param_expr in params.iter_mut() {
+					match self.analyse_expression(param_expr) {
+						Ok(type_hint) => param_types.push(type_hint),
+						Err(_) => {},
+					}
+				}
+
+				if self.signatures.contains_key(&ident.name) {
+					let signature = &self.signatures[&ident.name];
+					let signature_args = signature.arguments.clone();
+
+					if signature_args.len() != param_types.len() {
+						let error = type_error!(
+							ErrorCode::E0206,
+							Location::end(),
+							"Expected {} arguments for function call {:?}. Found {}",
+							signature_args.len(),
+							ident.name,
+							param_types.len()
+						);
+
+						self.errors.push(error);
+					}
+
+					for (index, (given, expected)) in param_types.iter().zip(signature_args.iter()).enumerate() {
+						if expected != given {
+							let error = type_error!(
+								ErrorCode::E0205,
+								Location::end(),
+								"Incorrect type given in function call for {:?}: Expected {:?} for argument {}, found {:?}",
+								ident.name,
+								expected,
+								index + 1,
+								given
+							);
+
+							self.errors.push(error);
+						}
+					}
+
+					Ok(signature.return_type)
+				} else {
+					// if the signature is not present
+					// then there was a problem creating it
+					// in which case the error will be output somewhere above
+					Err(())
+				}
+			},
 		}
 	}
-	*/
 }
 
 

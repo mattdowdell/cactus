@@ -11,4 +11,4 @@ pub mod location;
 pub mod lexer;
 pub mod parser;
 pub mod analyser;
-//pub mod code_gen;
+pub mod flowgraph;
