@@ -254,12 +254,26 @@ impl Identifier {
 		self.symbol_type = symbol_type;
 	}
 
+	///
+	///
+	///
+	pub fn get_symbol_type(&self) -> SymbolType {
+		self.symbol_type
+	}
+
 	/// Set the offset for the identifier.
 	///
 	/// The offset is the relative to the symbols for the scope. Function arguments have one set
 	/// of offsets, while local variables have another.
 	pub fn set_offset(&mut self, offset: usize) {
 		self.offset = offset;
+	}
+
+	///
+	///
+	///
+	pub fn get_offset_str(&self) -> String {
+		self.offset.to_string()
 	}
 
 }
@@ -337,15 +351,18 @@ impl Type {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
 	pub statements: Vec<Statement>,
+	pub id: usize
 }
+
 
 impl Block {
 	///
 	///
 	///
-	pub fn new() -> Block {
+	pub fn new(id: usize) -> Block {
 		Block {
 			statements: Vec::new(),
+			id: id,
 		}
 	}
 
@@ -358,7 +375,7 @@ impl Block {
 	/// let ident = Identifier::new("example".to_string());
 	/// let expr = Expression::Identifier(ident);
 	/// let stmt = Statement::Return(expr);
-	/// let mut block = Block::new();
+	/// let mut block = Block::new(0);
 	///
 	/// block.push(stmt);
 	/// ```
@@ -377,8 +394,8 @@ pub enum Statement {
 	Expression(Expression),
 	Loop(Block),
 	If(If),
-	Break,
-	Continue,
+	Break(LoopRef),
+	Continue(LoopRef),
 }
 
 /// A representation of a let statement in Cactus.
@@ -425,6 +442,22 @@ impl If {
 			consequence: consequence,
 			other: other,
 			alternative: alternative,
+		}
+	}
+}
+
+///
+///
+///
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct LoopRef {
+	pub loop_id: usize,
+}
+
+impl LoopRef {
+	pub fn new() -> LoopRef {
+		LoopRef {
+			loop_id: 0,
 		}
 	}
 }

@@ -62,7 +62,7 @@ impl Analyser {
 			ast: ast,
 			errors: Vec::new(),
 			signatures: HashMap::new(),
-			symbol_table: SymbolTable::new(),
+			symbol_table: SymbolTable::new(0),
 			table_path: VecDeque::new(),
 		}
 	}
@@ -146,7 +146,7 @@ impl Analyser {
 			Err(error) => self.errors.push(error),
 		};
 
-		let sub_table_index = self.symbol_table.sub_table();
+		let sub_table_index = self.symbol_table.sub_table(false);
 		self.table_path.push_back(sub_table_index);
 
 		for argument in function.arguments.iter_mut() {
@@ -172,14 +172,14 @@ impl Analyser {
 
 		}
 
-		self.analyse_block(&mut function.body, false);
+		self.analyse_block(&mut function.body, None);
 		self.table_path.pop_back();
 	}
 
 	//
 	//
 	//
-	fn analyse_block(&mut self, block: &mut Block, in_loop: bool) {
+	fn analyse_block(&mut self, block: &mut Block, loop_id: Option<usize>) {
 		for statement in block.statements.iter_mut() {
 			match statement {
 				Statement::Let(let_stmt) => {
@@ -234,9 +234,9 @@ impl Analyser {
 					}
 				},
 				Statement::Loop(ref mut body) => {
-					let sub_table_index = self.symbol_table.sub_table();
+					let sub_table_index = self.symbol_table.sub_table(true);
 					self.table_path.push_back(sub_table_index);
-					self.analyse_block(body, true);
+					self.analyse_block(body, Some(body.id));
 					self.table_path.pop_back();
 				},
 				Statement::If(ref mut if_stmt) => {
@@ -256,9 +256,9 @@ impl Analyser {
 						Err(_) => {}
 					}
 
-					let sub_table_index = self.symbol_table.sub_table();
+					let sub_table_index = self.symbol_table.sub_table(true);
 					self.table_path.push_back(sub_table_index);
-					self.analyse_block(&mut if_stmt.consequence, in_loop);
+					self.analyse_block(&mut if_stmt.consequence, loop_id);
 					self.table_path.pop_back();
 
 					if if_stmt.other.len() > 0 {
@@ -272,9 +272,9 @@ impl Analyser {
 
 					match if_stmt.alternative {
 						Some(ref mut alt) => {
-							let sub_table_index = self.symbol_table.sub_table();
+							let sub_table_index = self.symbol_table.sub_table(true);
 							self.table_path.push_back(sub_table_index);
-							self.analyse_block(alt, in_loop);
+							self.analyse_block(alt, loop_id);
 							self.table_path.pop_back();
 						}
 						None => {},
@@ -287,8 +287,8 @@ impl Analyser {
 						Err(_) => {}
 					}
 				},
-				Statement::Break => {
-					if !in_loop {
+				Statement::Break(ref mut loop_ref) => {
+					if loop_id.is_none() {
 						let error = syntax_error!(
 							ErrorCode::E0000,
 							Location::end(),
@@ -296,10 +296,12 @@ impl Analyser {
 						);
 
 						self.errors.push(error);
+					} else {
+						loop_ref.loop_id = loop_id.unwrap();
 					}
 				},
-				Statement::Continue => {
-					if !in_loop {
+				Statement::Continue(ref mut loop_ref) => {
+					if loop_id.is_none() {
 						let error = syntax_error!(
 							ErrorCode::E0001,
 							Location::end(),
@@ -307,6 +309,8 @@ impl Analyser {
 						);
 
 						self.errors.push(error);
+					} else {
+						loop_ref.loop_id = loop_id.unwrap();
 					}
 				},
 			}

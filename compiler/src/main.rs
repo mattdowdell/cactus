@@ -12,9 +12,12 @@ use std::{
 };
 use clap::{App, Arg};
 use cactus::{
-	parser::ast::Ast,
-	parser::parser::Parser,
+	parser::{
+		ast::Ast,
+		parser::Parser,
+	},
 	analyser::analyser::Analyser,
+	flowgraph::flowgraph::FlowGraph,
 };
 
 fn main() {
@@ -71,8 +74,18 @@ fn compile(input: &str) {
 	let mut analyser = Analyser::new(ast);
 
 	match analyser.analyse_ast() {
-		Ok(_) => {
-			println!("No errors detected!");
+		Ok(ast) => {
+			let mut flowgraph = FlowGraph::new();
+
+			flowgraph.convert_ast(ast);
+			flowgraph.to_basic_blocks();
+			flowgraph.follow_graph("main".to_string());
+
+			let instructions = flowgraph.flatten_basic_blocks();
+
+			for instr in instructions.iter() {
+				println!("{}", instr);
+			}
 		},
 		Err(errors) => {
 			for error in errors.iter() {

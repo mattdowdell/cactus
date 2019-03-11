@@ -33,6 +33,7 @@ use crate::{
 			Statement,
 			If,
 			Let,
+			LoopRef,
 			Expression,
 			Operator,
 			Literal,
@@ -46,7 +47,8 @@ use crate::{
 /// The parser implementation.
 pub struct Parser<'a> {
 	lexer: Peekable<Lexer<'a>>,
-	errors: Vec<CompilationError>
+	errors: Vec<CompilationError>,
+	block_id: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -62,6 +64,7 @@ impl<'a> Parser<'a> {
 		Parser {
 			lexer: Lexer::new(input).peekable(),
 			errors: Vec::new(),
+			block_id: 0,
 		}
 	}
 
@@ -95,6 +98,15 @@ impl<'a> Parser<'a> {
 		}
 
 
+	}
+
+	//
+	//
+	//
+	fn next_block_id(&mut self) -> usize {
+		let ret = self.block_id;
+		self.block_id += 1;
+		ret
 	}
 
 	// A helper method that checks if the next token is the given type and consumes it if so.
@@ -429,7 +441,8 @@ impl<'a> Parser<'a> {
 	//
 	// A block is a series of statements wrapped in braces, e.g. `{ ... }`.
 	fn parse_block(&mut self) -> Result<Block, CompilationError> {
-		let mut block = Block::new();
+		let block_id = self.next_block_id();
+		let mut block = Block::new(block_id);
 
 		self.expect_peek(TokenType::LeftBrace)?;
 
@@ -547,7 +560,7 @@ impl<'a> Parser<'a> {
 		self.expect_peek(TokenType::Break)?;
 		self.expect_peek(TokenType::Semicolon)?;
 
-		Ok(Statement::Break)
+		Ok(Statement::Break(LoopRef::new()))
 	}
 
 	// Parse a continue statement.
@@ -555,7 +568,7 @@ impl<'a> Parser<'a> {
 		self.expect_peek(TokenType::Continue)?;
 		self.expect_peek(TokenType::Semicolon)?;
 
-		Ok(Statement::Continue)
+		Ok(Statement::Continue(LoopRef::new()))
 	}
 
 	// Parse an expression statement.
@@ -1090,6 +1103,7 @@ mod test {
 						return_type: None,
 						body: Block {
 							statements: vec![],
+							id: 0,
 						},
 					}
 				)
@@ -1133,6 +1147,7 @@ mod test {
 						return_type: Some(Type::Int32),
 						body: Block {
 							statements: vec![],
+							id: 0,
 						},
 					}
 				)
@@ -1167,6 +1182,7 @@ mod test {
 						),
 						body: Block {
 							statements: vec![],
+							id: 0,
 						},
 					}
 				)
@@ -1206,6 +1222,7 @@ mod test {
 						),
 						body: Block {
 							statements: vec![],
+							id: 0,
 						},
 					}
 				)
@@ -1236,6 +1253,7 @@ mod test {
 						return_type: None,
 						body: Block {
 							statements: vec![],
+							id: 0,
 						},
 					}
 				)
@@ -1281,6 +1299,7 @@ mod test {
 						return_type: Some(Type::Int32),
 						body: Block {
 							statements: vec![],
+							id: 0,
 						},
 					}
 				)
@@ -1311,6 +1330,7 @@ mod test {
 						return_type: None,
 						body: Block {
 							statements: vec![],
+							id: 0,
 						},
 					}
 				)
@@ -1344,6 +1364,7 @@ mod test {
 						return_type: None,
 						body: Block {
 							statements: vec![],
+							id: 0,
 						},
 					}
 				)
@@ -1377,6 +1398,7 @@ mod test {
 						return_type: Some(Type::Int32),
 						body: Block {
 							statements: vec![],
+							id: 0,
 						},
 					}
 				)
@@ -1410,6 +1432,7 @@ mod test {
 						return_type: None,
 						body: Block {
 							statements: vec![],
+							id: 0,
 						}
 					}
 				),
@@ -2151,7 +2174,8 @@ mod test {
 						Statement::Expression(
 							expr_literal_int!("1")
 						),
-					]
+					],
+					id: 0,
 				}
 			)
 		];
@@ -2174,7 +2198,8 @@ mod test {
 		let expected = vec![
 			Statement::Loop(
 				Block {
-					statements: vec![]
+					statements: vec![],
+					id: 0,
 				}
 			)
 		];
@@ -2195,7 +2220,7 @@ mod test {
 	fn test_continue_statement() {
 		let mut parser = Parser::new("continue;");
 		let expected = vec![
-			Statement::Continue,
+			Statement::Continue(LoopRef::new()),
 		];
 
 		for expected in expected.iter() {
@@ -2214,7 +2239,7 @@ mod test {
 	fn test_break_statement() {
 		let mut parser = Parser::new("break;");
 		let expected = vec![
-			Statement::Break,
+			Statement::Break(LoopRef::new()),
 		];
 
 		for expected in expected.iter() {
@@ -2238,6 +2263,7 @@ mod test {
 					condition: expr_literal_int!("1"),
 					consequence: Block {
 						statements: vec![],
+						id: 0,
 					},
 					other: vec![],
 					alternative: None,
@@ -2266,10 +2292,12 @@ mod test {
 					condition: expr_literal_int!("1"),
 					consequence: Block {
 						statements: vec![],
+						id: 0,
 					},
 					other: vec![],
 					alternative: Some(Block {
 						statements: vec![],
+						id: 1,
 					})
 				}
 			),
@@ -2296,12 +2324,14 @@ mod test {
 					condition: expr_literal_int!("1"),
 					consequence: Block {
 						statements: vec![],
+						id: 0,
 					},
 					other: vec![
 						(
 							expr_literal_int!("1"),
 							Block {
 								statements: vec![],
+								id: 1,
 							},
 						),
 					],
@@ -2331,17 +2361,20 @@ mod test {
 					condition: expr_literal_int!("1"),
 					consequence: Block {
 						statements: vec![],
+						id: 0,
 					},
 					other: vec![
 						(
 							expr_literal_int!("1"),
 							Block {
 								statements: vec![],
+								id: 1,
 							},
 						),
 					],
 					alternative: Some(Block {
 						statements: vec![],
+						id: 2,
 					})
 				}
 			),
@@ -2368,29 +2401,34 @@ mod test {
 					condition: expr_literal_int!("1"),
 					consequence: Block {
 						statements: vec![],
+						id: 0,
 					},
 					other: vec![
 						(
 							expr_literal_int!("1"),
 							Block {
 								statements: vec![],
+								id: 1,
 							},
 						),
 						(
 							expr_literal_int!("1"),
 							Block {
 								statements: vec![],
+								id: 2,
 							},
 						),
 						(
 							expr_literal_int!("1"),
 							Block {
 								statements: vec![],
+								id: 3,
 							},
 						),
 					],
 					alternative: Some(Block {
 						statements: vec![],
+						id: 4,
 					})
 				}
 			),
@@ -2424,14 +2462,16 @@ mod test {
 					Statement::Loop(
 						Block {
 							statements: vec![
-								Statement::Break,
-							]
+								Statement::Break(LoopRef::new()),
+							],
+							id: 1,
 						}
 					),
 					Statement::Return(
 						expr_literal_int!("5")
 					),
 				],
+				id: 0,
 			}
 		];
 

@@ -27,11 +27,11 @@ impl SymbolTable {
 	/// Initialise a new `SymbolTable`.
 	///
 	///
-	pub fn new() -> SymbolTable {
+	pub fn new(local_offset: usize) -> SymbolTable {
 		SymbolTable {
 			items: Vec::new(),
 			argument_offset: 0,
-			local_offset: 0,
+			local_offset: local_offset,
 		}
 	}
 
@@ -57,8 +57,9 @@ impl SymbolTable {
 	/// Add a new `SymbolTable` to the existing table and return the new table's index.
 	///
 	///
-	pub fn sub_table(&mut self) -> usize {
-		let table = SymbolTable::new();
+	pub fn sub_table(&mut self, inherit_offset: bool) -> usize {
+		let offset = if inherit_offset { self.local_offset } else { 0 };
+		let table = SymbolTable::new(offset);
 		let item = SymbolItem::Table(table);
 
 		self.items.push(item);
@@ -241,7 +242,7 @@ mod test {
 	//
 	#[test]
 	fn test_push_function() {
-		let mut table = SymbolTable::new();
+		let mut table = SymbolTable::new(0);
 		let expected = SymbolTable {
 			items: vec![
 				SymbolItem::Symbol(Symbol {
@@ -264,7 +265,7 @@ mod test {
 	//
 	#[test]
 	fn test_push_function_redefined() {
-		let mut table = SymbolTable::new();
+		let mut table = SymbolTable::new(0);
 
 		let res = table.push_function("example".to_string(), TypeHint::Int32);
 		assert!(res.is_ok());
@@ -276,7 +277,7 @@ mod test {
 	//
 	#[test]
 	fn test_push_argument() {
-		let mut table = SymbolTable::new();
+		let mut table = SymbolTable::new(0);
 		let expected = SymbolTable {
 			items: vec![
 				SymbolItem::Table(SymbolTable {
@@ -296,7 +297,7 @@ mod test {
 		};
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.sub_table();
+		let sub_table_index = table.sub_table(false);
 		path.push_back(sub_table_index);
 
 		let name = "example".to_string();
@@ -309,10 +310,10 @@ mod test {
 	//
 	#[test]
 	fn test_push_argument_redefined() {
-		let mut table = SymbolTable::new();
+		let mut table = SymbolTable::new(0);
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.sub_table();
+		let sub_table_index = table.sub_table(false);
 		path.push_back(sub_table_index);
 
 		let res = table.push_argument("example".to_string(), path.clone(), TypeHint::Int32);
@@ -325,7 +326,7 @@ mod test {
 	//
 	#[test]
 	fn test_push_local() {
-		let mut table = SymbolTable::new();
+		let mut table = SymbolTable::new(0);
 		let expected = SymbolTable {
 			items: vec![
 				SymbolItem::Table(SymbolTable {
@@ -345,7 +346,7 @@ mod test {
 		};
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.sub_table();
+		let sub_table_index = table.sub_table(false);
 		path.push_back(sub_table_index);
 
 		let name = "example".to_string();
@@ -358,10 +359,10 @@ mod test {
 	//
 	#[test]
 	fn test_push_local_redefined() {
-		let mut table = SymbolTable::new();
+		let mut table = SymbolTable::new(0);
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.sub_table();
+		let sub_table_index = table.sub_table(false);
 		path.push_back(sub_table_index);
 
 		let res = table.push_local("example".to_string(), path.clone(), TypeHint::Int32);
