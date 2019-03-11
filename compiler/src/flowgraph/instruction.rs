@@ -143,15 +143,12 @@ impl Instruction {
 		}
 	}
 
-	///
-	///
-	///
-	pub fn new_loop_label(block_id: usize, is_start: bool) -> Instruction {
-		if is_start {
-			Instruction::Labeldef(String::loop_start(block_id))
-		} else {
-			Instruction::Labeldef(String::loop_end(block_id))
-		}
+	pub fn push_symbol(symbol: Symbol) -> Instruction {
+		Instruction::Push(Literal::Symbol(symbol))
+	}
+
+	pub fn push_offset(offset: usize) -> Instruction {
+		Instruction::Push(Literal::Integer(offset.to_string()))
 	}
 }
 

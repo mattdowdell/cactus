@@ -46,6 +46,13 @@ impl FlowGraph {
 	///
 	///
 	///
+	pub fn push(&mut self, instruction: Instruction) {
+		self.instructions.push(instruction);
+	}
+
+	///
+	///
+	///
 	pub fn convert_ast(&mut self, ast: Ast) {
 		for module in ast.modules.iter() {
 			for definition in module.definitions.iter() {
@@ -55,13 +62,13 @@ impl FlowGraph {
 					| Definition::Enum(_) => {},
 
 					Definition::Function(func) => {
-						self.instructions.push(
+						self.push(
 							Instruction::Labeldef(func.identifier.name.clone())
 						);
 						self.convert_block(&func.body);
 
 						if func.return_type.is_none() && func.identifier.name != "main" {
-							self.instructions.push(Instruction::Return);
+							self.push(Instruction::Return);
 						}
 					},
 				}
@@ -249,25 +256,25 @@ impl FlowGraph {
 				Statement::Break(loop_ref) => {
 					let label = String::loop_end(loop_ref.loop_id);
 
-					self.instructions.push(Instruction::Pushaddr(label));
-					self.instructions.push(Instruction::Jmp);
+					self.push(Instruction::Pushaddr(label));
+					self.push(Instruction::Jmp);
 				},
 				Statement::Continue(loop_ref) => {
 					let label = String::loop_start(loop_ref.loop_id);
 
-					self.instructions.push(Instruction::Pushaddr(label));
-					self.instructions.push(Instruction::Jmp);
+					self.push(Instruction::Pushaddr(label));
+					self.push(Instruction::Jmp);
 				},
 			}
 		}
 	}
 
 	fn convert_let_statement(&mut self, let_stmt: &Let) {
-		self.instructions.push(Instruction::Push(Literal::Symbol(Symbol::Locals)));
-		self.instructions.push(Instruction::Push(Literal::Integer(let_stmt.identifier.get_offset_str())));
+		self.push(Instruction::push_symbol(Symbol::Locals));
+		self.push(Instruction::push_offset(let_stmt.identifier.get_offset()));
 		self.convert_expression(&let_stmt.value);
 
-		self.instructions.push(Instruction::Storeidx);
+		self.push(Instruction::Storeidx);
 
 	}
 
@@ -275,16 +282,16 @@ impl FlowGraph {
     //
     //
 	fn convert_loop_statement(&mut self, body: &Block) {
-		let start_label = Instruction::new_loop_label(body.id, true);
-		let end_label = Instruction::new_loop_label(body.id, false);
+		let start_label = String::loop_start(body.id);
+		let end_label = String::loop_end(body.id);
 
-		self.instructions.push(start_label.clone());
+		self.push(Instruction::Labeldef(start_label.clone()));
 		self.convert_block(body);
-		
-		self.instructions.push(Instruction::Pushaddr(start_label.clone()));
-		self.instructions.push(Instruction::Jmp);
-		
-		self.instructions.push(end_label);
+
+		self.push(Instruction::Pushaddr(start_label.clone()));
+		self.push(Instruction::Jmp);
+
+		self.push(Instruction::Labeldef(end_label));
 	}
 
     //
@@ -292,13 +299,13 @@ impl FlowGraph {
     //
 	fn convert_if_statement(&mut self, if_stmt: &If) {
 		// bodge to make sure the flowgraph knows where to go next
-		self.instructions.push(Instruction::Pushaddr(String::if_start(if_stmt.consequence.id)));
-		self.instructions.push(Instruction::Jmp);
+		self.push(Instruction::Pushaddr(String::if_start(if_stmt.consequence.id)));
+		self.push(Instruction::Jmp);
 
-		self.instructions.push(Instruction::Labeldef(String::if_start(if_stmt.consequence.id)));
+		self.push(Instruction::Labeldef(String::if_start(if_stmt.consequence.id)));
 		self.convert_expression(&if_stmt.condition);
-		self.instructions.push(Instruction::Pushaddr(String::if_body(if_stmt.consequence.id)));
-		self.instructions.push(Instruction::Jmpnz);
+		self.push(Instruction::Pushaddr(String::if_body(if_stmt.consequence.id)));
+		self.push(Instruction::Jmpnz);
 
 
 		let next_label = if if_stmt.other.len() > 0 {
@@ -310,9 +317,9 @@ impl FlowGraph {
 			String::if_end(if_stmt.consequence.id)
 		};
 
-		self.instructions.push(Instruction::Pushaddr(next_label));
-		self.instructions.push(Instruction::Jmp);
-		self.instructions.push(
+		self.push(Instruction::Pushaddr(next_label));
+		self.push(Instruction::Jmp);
+		self.push(
 			Instruction::Labeldef(
 				String::if_body(if_stmt.consequence.id)
 			)
@@ -320,22 +327,22 @@ impl FlowGraph {
 
 		self.convert_block(&if_stmt.consequence);
 
-		self.instructions.push(Instruction::Pushaddr(String::if_end(if_stmt.consequence.id)));
-		self.instructions.push(Instruction::Jmp);
+		self.push(Instruction::Pushaddr(String::if_end(if_stmt.consequence.id)));
+		self.push(Instruction::Jmp);
 
 		// TODO: elif
 
 		if if_stmt.alternative.is_some() {
 			let alternative = if_stmt.alternative.clone().unwrap();
 
-			self.instructions.push(Instruction::Labeldef(String::if_body(alternative.id)));
+			self.push(Instruction::Labeldef(String::if_body(alternative.id)));
 			self.convert_block(&alternative);
 
-			self.instructions.push(Instruction::Pushaddr(String::if_end(if_stmt.consequence.id)));
-			self.instructions.push(Instruction::Jmp);
+			self.push(Instruction::Pushaddr(String::if_end(if_stmt.consequence.id)));
+			self.push(Instruction::Jmp);
 		}
 
-		self.instructions.push(Instruction::Labeldef(String::if_end(if_stmt.consequence.id)));
+		self.push(Instruction::Labeldef(String::if_end(if_stmt.consequence.id)));
 	}
 
 	fn convert_expression(&mut self, expression: &Expression) {
@@ -344,7 +351,7 @@ impl FlowGraph {
 				let literal = Literal::from_ast_literal(literal.clone());
 				let instr = Instruction::Push(literal);
 
-				self.instructions.push(instr);
+				self.push(instr);
 			},
 			Expression::Identifier(ident) => {
 				let literal = match ident.get_symbol_type() {
@@ -358,34 +365,34 @@ impl FlowGraph {
 					}
 				};
 
-				self.instructions.push(Instruction::Push(literal));
-				self.instructions.push(Instruction::Push(Literal::Integer(ident.get_offset_str())));
-				self.instructions.push(Instruction::Loadidx);
+				self.push(Instruction::Push(literal));
+				self.push(Instruction::push_offset(ident.get_offset()));
+				self.push(Instruction::Loadidx);
 			},
 			Expression::Struct(_) => {
 				panic!("Converting a struct expression to instructions is not yet supported");
 			},
 			Expression::Prefix(op, expr) => {
 				self.convert_expression(expr);
-				self.instructions.push(Instruction::from_operator(*op));
+				self.push(Instruction::from_operator(*op));
 			},
 			Expression::Infix(left, op, right) => {
 				self.convert_expression(left);
 				self.convert_expression(right);
-				self.instructions.push(Instruction::from_operator(*op));
+				self.push(Instruction::from_operator(*op));
 			},
 			Expression::Call(ident, params) => {
 				for param in params.iter() {
 					self.convert_expression(param);
-					self.instructions.push(Instruction::Pusharg);
+					self.push(Instruction::Pusharg);
 				}
 
-				self.instructions.push(Instruction::Pushaddr(ident.name.clone()));
-				self.instructions.push(Instruction::Subcall);
+				self.push(Instruction::Pushaddr(ident.name.clone()));
+				self.push(Instruction::Subcall);
 
 				// TODO: figure out if this can be made optional
 				//       as we don't always need the result of the function call
-				self.instructions.push(Instruction::Pushret);
+				self.push(Instruction::Pushret);
 			},
 		}
 	}

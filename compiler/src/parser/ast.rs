@@ -272,8 +272,8 @@ impl Identifier {
 	///
 	///
 	///
-	pub fn get_offset_str(&self) -> String {
-		self.offset.to_string()
+	pub fn get_offset(&self) -> usize {
+		self.offset
 	}
 
 }
