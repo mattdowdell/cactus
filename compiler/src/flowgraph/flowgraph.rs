@@ -127,6 +127,10 @@ impl FlowGraph {
 			let mut block = self.blocks[&name].clone();
 			let mut last_addr: Option<String> = None;
 
+            if block.used {
+                return;
+            }
+
 			block.used = true;
 
 			for instr in block.instructions.iter() {
@@ -267,15 +271,25 @@ impl FlowGraph {
 
 	}
 
+    //
+    //
+    //
 	fn convert_loop_statement(&mut self, body: &Block) {
 		let start_label = Instruction::new_loop_label(body.id, true);
 		let end_label = Instruction::new_loop_label(body.id, false);
 
-		self.instructions.push(start_label);
+		self.instructions.push(start_label.clone());
 		self.convert_block(body);
+		
+		self.instructions.push(Instruction::Pushaddr(start_label.clone()));
+		self.instructions.push(Instruction::Jmp);
+		
 		self.instructions.push(end_label);
 	}
 
+    //
+    //
+    //
 	fn convert_if_statement(&mut self, if_stmt: &If) {
 		// bodge to make sure the flowgraph knows where to go next
 		self.instructions.push(Instruction::Pushaddr(String::if_start(if_stmt.consequence.id)));
