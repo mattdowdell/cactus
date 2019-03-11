@@ -58,7 +58,11 @@ impl FlowGraph {
 						self.instructions.push(
 							Instruction::Labeldef(func.identifier.name.clone())
 						);
-						self.convert_block(&func.body)
+						self.convert_block(&func.body);
+
+						if func.return_type.is_none() && func.identifier.name != "main" {
+							self.instructions.push(Instruction::Return);
+						}
 					},
 				}
 			}
@@ -83,6 +87,7 @@ impl FlowGraph {
 					add_to_block = true;
 				},
 				Instruction::Jmp => {
+					block.push(instr.clone());
 					add_to_block = false;
 				},
 				_ => {
@@ -91,6 +96,10 @@ impl FlowGraph {
 					}
 				},
 			}
+		}
+
+		if block.label != "_" {
+			self.blocks.insert(block.label.clone(), block.clone());
 		}
 	}
 
@@ -136,9 +145,21 @@ impl FlowGraph {
 							}
 						}
 					},
+					Instruction::Jmpnz => {
+						match last_addr {
+							Some(addr) => {
+								self.follow_graph(addr);
+								last_addr = None;
+							},
+							None => {
+								panic!("JMPNZ instruction found with no Pushaddr");
+							}
+						}
+					},
 					Instruction::Jmp => {
 						match last_addr {
 							Some(addr) => {
+								self.blocks.insert(name.clone(), block);
 								self.follow_graph(addr);
 								return;
 							},
@@ -147,13 +168,31 @@ impl FlowGraph {
 							}
 						}
 					},
+					Instruction::Return => {
+						self.blocks.insert(name.clone(), block);
+						return;
+					}
 					// nothing to do for this
 					_ => {},
 				}
 			}
 
+			// insert a halt if it's not there already
+			match block.last() {
+				Some(instr) => {
+					match instr {
+						Instruction::Halt => {},
+						_ => {
+							block.push(Instruction::Halt);
+						}
+					}
+				},
+				None => {
+					block.push(Instruction::Halt);
+				}
+			}
+
 			// update the block
-			block.push(Instruction::Halt);
 			self.blocks.insert(name.clone(), block);
 		}
 	}
@@ -238,6 +277,10 @@ impl FlowGraph {
 	}
 
 	fn convert_if_statement(&mut self, if_stmt: &If) {
+		// bodge to make sure the flowgraph knows where to go next
+		self.instructions.push(Instruction::Pushaddr(String::if_start(if_stmt.consequence.id)));
+		self.instructions.push(Instruction::Jmp);
+
 		self.instructions.push(Instruction::Labeldef(String::if_start(if_stmt.consequence.id)));
 		self.convert_expression(&if_stmt.condition);
 		self.instructions.push(Instruction::Pushaddr(String::if_body(if_stmt.consequence.id)));
@@ -263,6 +306,9 @@ impl FlowGraph {
 
 		self.convert_block(&if_stmt.consequence);
 
+		self.instructions.push(Instruction::Pushaddr(String::if_end(if_stmt.consequence.id)));
+		self.instructions.push(Instruction::Jmp);
+
 		// TODO: elif
 
 		if if_stmt.alternative.is_some() {
@@ -270,6 +316,9 @@ impl FlowGraph {
 
 			self.instructions.push(Instruction::Labeldef(String::if_body(alternative.id)));
 			self.convert_block(&alternative);
+
+			self.instructions.push(Instruction::Pushaddr(String::if_end(if_stmt.consequence.id)));
+			self.instructions.push(Instruction::Jmp);
 		}
 
 		self.instructions.push(Instruction::Labeldef(String::if_end(if_stmt.consequence.id)));
@@ -365,5 +414,12 @@ impl BasicBlock {
 	///
 	pub fn len(&self) -> usize {
 		self.instructions.len()
+	}
+
+	///
+	///
+	///
+	pub fn last(&self) -> Option<&Instruction> {
+		self.instructions.last()
 	}
 }
