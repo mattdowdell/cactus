@@ -19,8 +19,7 @@ use crate::{
 		Instruction,
 		Literal,
 		Symbol,
-		loop_label_start,
-		loop_label_end,
+		Label,
 	},
 };
 
@@ -56,6 +55,9 @@ impl FlowGraph {
 					| Definition::Enum(_) => {},
 
 					Definition::Function(func) => {
+						self.instructions.push(
+							Instruction::Labeldef(func.identifier.name.clone())
+						);
 						self.convert_block(&func.body)
 					},
 				}
@@ -73,7 +75,7 @@ impl FlowGraph {
 		for instr in self.instructions.iter() {
 			match instr {
 				Instruction::Labeldef(label) => {
-					if block.len() > 0 {
+					if block.label != "_" {
 						self.blocks.insert(block.label.clone(), block.clone());
 					}
 
@@ -106,9 +108,14 @@ impl FlowGraph {
 		// as well and when converting to instructions
 
 		if !self.blocks.contains_key(&name) {
+			for key in self.blocks.keys() {
+				println!("Found key: {:?}", key);
+			}
+
 			panic!("Unable to find basic block with label: {:?}", name);
+
 		} else {
-			let block = self.blocks.get_mut(&name).unwrap();
+			let mut block = self.blocks[&name].clone();
 			let mut last_addr: Option<String> = None;
 
 			block.used = true;
@@ -117,6 +124,17 @@ impl FlowGraph {
 				match instr {
 					Instruction::Pushaddr(addr) => {
 						last_addr = Some(addr.clone());
+					},
+					Instruction::Subcall => {
+						match last_addr {
+							Some(addr) => {
+								self.follow_graph(addr);
+								last_addr = None;
+							},
+							None => {
+								panic!("SUBCALL instruction found with no Pushaddr");
+							}
+						}
 					},
 					Instruction::Jmp => {
 						match last_addr {
@@ -134,7 +152,9 @@ impl FlowGraph {
 				}
 			}
 
+			// update the block
 			block.push(Instruction::Halt);
+			self.blocks.insert(name.clone(), block);
 		}
 	}
 
@@ -184,13 +204,13 @@ impl FlowGraph {
 					self.convert_if_statement(if_stmt);
 				},
 				Statement::Break(loop_ref) => {
-					let label = loop_label_end(loop_ref.loop_id);
+					let label = String::loop_end(loop_ref.loop_id);
 
 					self.instructions.push(Instruction::Pushaddr(label));
 					self.instructions.push(Instruction::Jmp);
 				},
 				Statement::Continue(loop_ref) => {
-					let label = loop_label_start(loop_ref.loop_id);
+					let label = String::loop_start(loop_ref.loop_id);
 
 					self.instructions.push(Instruction::Pushaddr(label));
 					self.instructions.push(Instruction::Jmp);
@@ -217,8 +237,42 @@ impl FlowGraph {
 		self.instructions.push(end_label);
 	}
 
-	fn convert_if_statement(&mut self, _if_stmt: &If) {
-		unimplemented!()
+	fn convert_if_statement(&mut self, if_stmt: &If) {
+		self.instructions.push(Instruction::Labeldef(String::if_start(if_stmt.consequence.id)));
+		self.convert_expression(&if_stmt.condition);
+		self.instructions.push(Instruction::Pushaddr(String::if_body(if_stmt.consequence.id)));
+		self.instructions.push(Instruction::Jmpnz);
+
+
+		let next_label = if if_stmt.other.len() > 0 {
+			let (_cond, consq) = if_stmt.other[0].clone();
+			String::if_start(consq.id)
+		} else if if_stmt.alternative.is_some() {
+			String::if_body(if_stmt.alternative.clone().unwrap().id)
+		} else {
+			String::if_end(if_stmt.consequence.id)
+		};
+
+		self.instructions.push(Instruction::Pushaddr(next_label));
+		self.instructions.push(Instruction::Jmp);
+		self.instructions.push(
+			Instruction::Labeldef(
+				String::if_body(if_stmt.consequence.id)
+			)
+		);
+
+		self.convert_block(&if_stmt.consequence);
+
+		// TODO: elif
+
+		if if_stmt.alternative.is_some() {
+			let alternative = if_stmt.alternative.clone().unwrap();
+
+			self.instructions.push(Instruction::Labeldef(String::if_body(alternative.id)));
+			self.convert_block(&alternative);
+		}
+
+		self.instructions.push(Instruction::Labeldef(String::if_end(if_stmt.consequence.id)));
 	}
 
 	fn convert_expression(&mut self, expression: &Expression) {
@@ -242,7 +296,8 @@ impl FlowGraph {
 				};
 
 				self.instructions.push(Instruction::Push(literal));
-				// TODO need LOADIDX here, plus the addition of the index
+				self.instructions.push(Instruction::Push(Literal::Integer(ident.get_offset_str())));
+				self.instructions.push(Instruction::Loadidx);
 			},
 			Expression::Struct(_) => {
 				panic!("Converting a struct expression to instructions is not yet supported");

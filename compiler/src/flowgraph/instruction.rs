@@ -7,12 +7,35 @@ use std::fmt;
 use crate::parser::ast;
 
 
-pub fn loop_label_start(id: usize) -> String {
-	format!("loop_start_{}", id)
+pub trait Label {
+	fn loop_start(id: usize) -> Self;
+	fn loop_end(id: usize) -> Self;
+
+	fn if_start(id: usize) -> Self;
+	fn if_body(id: usize) -> Self;
+	fn if_end(id: usize) -> Self;
 }
 
-pub fn loop_label_end(id: usize) -> String {
-	format!("loop_end_{}", id)
+impl Label for String {
+	fn loop_start(id: usize) -> String {
+		format!("loop_start_{}", id)
+	}
+
+	fn loop_end(id: usize) -> String {
+		format!("loop_end_{}", id)
+	}
+
+	fn if_start(id: usize) -> String {
+		format!("if_start_{}", id)
+	}
+
+	fn if_body(id: usize) -> String {
+		format!("if_body_{}", id)
+	}
+
+	fn if_end(id: usize) -> String {
+		format!("if_end_{}", id)
+	}
 }
 
 ///
@@ -29,6 +52,7 @@ pub enum Instruction {
 	Gt,
 	Halt,
 	Jmp,
+	Jmpnz,
 	Labeldef(String),
 	Leq,
 	Loadidx,
@@ -61,7 +85,6 @@ pub enum Instruction {
 	In,
 	Store,     // shortcut for storeidx
 	Load,      // shortcut for loadidx
-	Jmpnz,     // needed for if statements
 */
 
 impl Instruction {
@@ -125,9 +148,9 @@ impl Instruction {
 	///
 	pub fn new_loop_label(block_id: usize, is_start: bool) -> Instruction {
 		if is_start {
-			Instruction::Labeldef(loop_label_start(block_id))
+			Instruction::Labeldef(String::loop_start(block_id))
 		} else {
-			Instruction::Labeldef(loop_label_end(block_id))
+			Instruction::Labeldef(String::loop_end(block_id))
 		}
 	}
 }
@@ -144,6 +167,7 @@ impl fmt::Display for Instruction {
 			Instruction::Gt              => write!(f, "\tGT;"),
 			Instruction::Halt            => write!(f, "\tHALT;"),
 			Instruction::Jmp             => write!(f, "\tJMP;"),
+			Instruction::Jmpnz           => write!(f, "\tJMPNZ;"),
 			Instruction::Labeldef(label) => write!(f, "{}:", label),
 			Instruction::Leq             => write!(f, "\tLEQ;"),
 			Instruction::Loadidx         => write!(f, "\tLOADIDX;"),
