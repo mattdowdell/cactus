@@ -62,13 +62,6 @@ pub struct Module {
 
 impl Module {
 	/// Create a new instance of module.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::parser::ast::Module;
-	///
-	/// Module::new();
-	/// ```
 	pub fn new() -> Module {
 		Module {
 			definitions: Vec::new(),
@@ -76,19 +69,6 @@ impl Module {
 	}
 
 	/// Add a definition to the module.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::parser::ast::{Module, Definition, Enum, Identifier};
-	///
-	/// let ident = Identifier::new("example".to_string());
-	/// let field = Identifier::new("x".to_string());
-	/// let enumeration = Enum::new(ident, vec![field]);
-	/// let def = Definition::Enum(enumeration);
-	/// let mut module = Module::new();
-	///
-	/// module.push(def);
-	/// ```
 	pub fn push(&mut self, definition: Definition) {
 		self.definitions.push(definition);
 	}
@@ -193,13 +173,6 @@ pub struct Identifier {
 
 impl Identifier {
 	/// Create a new identifier.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::parser::ast::Identifier;
-	///
-	/// Identifier::new("example".to_string());
-	/// ```
 	pub fn new(name: String) -> Identifier {
 		Identifier {
 			name: name,
@@ -214,35 +187,11 @@ impl Identifier {
 	///
 	/// An identifier with an import path indicates that it has been imported from another
 	/// module and is thus defined somewhere else.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::parser::ast::Identifier;
-	///
-	/// let module_name = Identifier::new("std".to_string());
-	/// let import_path = vec![module_name];
-	/// let mut ident = Identifier::new("example".to_string());
-	///
-	/// ident.set_path(import_path);
-	/// ```
 	pub fn set_path(&mut self, path: Vec<Identifier>) {
 		self.path = path;
 	}
 
 	/// Test if the identifier is local by checking if it has an import path set.
-	///
-	/// ```
-	/// use cactus::parser::ast::Identifier;
-	///
-	/// let module_name = Identifier::new("std".to_string());
-	/// let import_path = vec![module_name];
-	///
-	/// let mut ident = Identifier::new("example".to_string());
-	/// assert!(ident.is_local());
-	///
-	/// ident.set_path(import_path);
-	/// assert!(!ident.is_local());
-	/// ```
 	pub fn is_local(&self) -> bool {
 		self.path.len() == 0
 	}
@@ -367,18 +316,6 @@ impl Block {
 	}
 
 	/// Add a statement to the block.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::parser::ast::{Block, Statement, Expression, Identifier};
-	///
-	/// let ident = Identifier::new("example".to_string());
-	/// let expr = Expression::Identifier(ident);
-	/// let stmt = Statement::Return(expr);
-	/// let mut block = Block::new(0);
-	///
-	/// block.push(stmt);
-	/// ```
 	pub fn push(&mut self, statement: Statement) {
 		self.statements.push(statement);
 	}
@@ -487,19 +424,6 @@ pub enum Literal {
 
 impl Literal {
 	/// Convert a token to a literal.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::location::Location;
-	/// use cactus::lexer::token::{Token, TokenType};
-	/// use cactus::parser::ast::Literal;
-	///
-	/// let location = Location::new(1, 0);
-	/// let token = Token::from_type(TokenType::True, location);
-	/// let literal = Literal::from_token(token).unwrap();
-	///
-	/// assert_eq!(literal, Literal::Boolean(true));
-	/// ```
 	pub fn from_token(token: Token) -> Result<Literal, CompilationError> {
 		match token.token_type {
 			TokenType::Integer => Ok(Literal::Integer(token.value.unwrap().clone())),
@@ -585,21 +509,8 @@ pub enum Operator {
 impl Operator {
 	/// Convert a token to a prefix operator.
 	///
-	/// Only accepts tokens that are prefix operators. If an invalid token s converted an error
+	/// Only accepts tokens that are prefix operators. If an invalid token is given then an error
 	/// will be returned.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::location::Location;
-	/// use cactus::lexer::token::{Token, TokenType};
-	/// use cactus::parser::ast::Operator;
-	///
-	/// let location = Location::new(1, 0);
-	/// let token = Token::from_type(TokenType::Not, location);
-	/// let operator = Operator::new_prefix(token).unwrap();
-	///
-	/// assert_eq!(operator, Operator::Not);
-	/// ```
 	pub fn new_prefix(token: Token) -> Result<Operator, CompilationError> {
 		match token.token_type {
 			TokenType::Not => Ok(Operator::Not),
@@ -617,21 +528,8 @@ impl Operator {
 
 	/// Convert a token to an infix operator.
 	///
-	/// Only accepts tokens that are infix operators. If an invalid token is given an error will be
-	/// returned.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::location::Location;
-	/// use cactus::lexer::token::{Token, TokenType};
-	/// use cactus::parser::ast::Operator;
-	///
-	/// let location = Location::new(1, 0);
-	/// let token = Token::from_type(TokenType::Plus, location);
-	/// let operator = Operator::new_infix(token).unwrap();
-	///
-	/// assert_eq!(operator, Operator::Plus);
-	/// ```
+	/// Only accepts tokens that are infix operators. If an invalid token is given then an error
+	/// will be returned.
 	pub fn new_infix(token: Token) -> Result<Operator, CompilationError> {
 		match token.token_type {
 			TokenType::Plus               => Ok(Operator::Plus),

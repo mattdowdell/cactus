@@ -4,18 +4,8 @@
 //! variants of `Precedence` directly. The code for managing prefix operator precedence is baked
 //! into the parser to avoid conflict between prefix and infix operators.
 
-
-use crate::{
-	error::{
-		CompilationError,
-		ErrorCode,
-		ErrorType,
-	},
-	lexer::token::{
-		Token,
-		TokenType,
-	},
-};
+use crate::error::{CompilationError, ErrorCode, syntax_error};
+use crate::compiler::lexer::{Token, TokenType};
 
 
 /// Operator precedences for Cactus.
@@ -57,22 +47,6 @@ pub enum Precedence {
 
 impl Precedence {
 	/// Try to convert a `Token` to a `Precedence`.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::location::Location;
-	/// use cactus::lexer::token::{Token, TokenType};
-	/// use cactus::parser::precedence::Precedence;
-	///
-	/// let token = Token::from_type(TokenType::Equal, Location::new(1, 0));
-	/// let precedence = Precedence::from_token(token);
-	/// assert!(precedence.is_ok());
-	/// assert_eq!(precedence.unwrap(), Precedence::Equals);
-	///
-	/// let token = Token::new(TokenType::Illegal, "@".to_string(), Location::new(1, 0));
-	/// let precedence = Precedence::from_token(token);
-	/// assert!(precedence.is_err());
-	/// ```
 	pub fn from_token(token: Token) -> Result<Precedence, CompilationError> {
 		match token.token_type {
 			TokenType::Assign
@@ -116,12 +90,12 @@ impl Precedence {
 			TokenType::LeftParen
 			| TokenType::Dot => Ok(Precedence::Call),
 
-			_ => Err(syntax_error!(
-				ErrorCode::E0002,
-				token.location,
-				"Unable to convert TokenType to Precedence: {:?}",
-				token.token_type
-			)),
+			_ => {
+				Err(syntax_error(ErrorCode::E0002,
+					token.location,
+					format!("Unable to convert TokenType to Precedence: {:?}",
+						token.token_type)))
+			},
 		}
 	}
 }
@@ -212,7 +186,6 @@ mod test {
 			(token!(TokenType::LeftParen), true),
 
 			// everything else should fail
-			(token!(TokenType::Eof), false),
 			(token!(TokenType::Illegal), false),
 			(token!(TokenType::Identifier), false),
 			(token!(TokenType::Integer), false),

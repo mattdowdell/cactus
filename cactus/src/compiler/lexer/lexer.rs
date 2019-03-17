@@ -1,22 +1,11 @@
-//! An implementation of a lexer as an iterator.
-//!
-//! # Usage
-//! ```
-//! use cactus::lexer::lexer::Lexer;
-//!
-//! let lexer = Lexer::new("let x: i32 = 1");
-//!
-//! for token in lexer {
-//!     // do something with the tokens here
-//!     println!("{:?}", token);
-//! }
-//! ```
+//! The Cactus lexer.
 
 use std::iter::Peekable;
 use std::str::Chars;
 
 use crate::location::Location;
-use crate::lexer::token::{Token, TokenType};
+use super::token::Token;
+use super::token_type::TokenType;
 
 // Alternative to `char.is_whitespace()` that excludes form feeds as it's rare you would want them
 // in code (excluding strings).
@@ -37,13 +26,6 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
 	/// Create a new instance of `Lexer`.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::lexer::Lexer;
-	///
-	/// Lexer::new("let x: i32 = 1;");
-	/// ```
 	pub fn new(input: &'a str) -> Lexer<'a> {
 		Lexer {
 			input: input.chars().peekable(),

@@ -210,21 +210,6 @@ impl Token {
 	///
 	/// The should only be used for tokens that have a value. If this is not the case, consider
 	/// using `Token::from_type` for `Token::from_ident`.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::location::Location;
-	/// use cactus::lexer::token::{Token, TokenType};
-	///
-	/// let location = Location::new(1, 1);
-	/// let value = "10".to_string();
-	/// let token = Token::new(TokenType::Integer, value, location);
-	///
-	/// assert_eq!(token.token_type, TokenType::Integer);
-	/// assert_eq!(token.value.unwrap(), "10");
-	/// assert_eq!(token.location.line, 1);
-	/// assert_eq!(token.location.column, 1);
-	/// ```
 	pub fn new(token_type: TokenType, value: String, location: Location) -> Token {
 		Token {
 			token_type: token_type,
@@ -234,20 +219,6 @@ impl Token {
 	}
 
 	/// Create a new instance of `Token` from a known `TokenType`.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::location::Location;
-	/// use cactus::lexer::token::{Token, TokenType};
-	///
-	/// let location = Location::new(1, 1);
-	/// let token = Token::from_type(TokenType::Plus, location);
-	///
-	/// assert_eq!(token.token_type, TokenType::Plus);
-	/// assert!(token.value.is_none());
-	/// assert_eq!(token.location.line, 1);
-	/// assert_eq!(token.location.column, 1);
-	/// ```
 	pub fn from_type(token_type: TokenType, location: Location) -> Token {
 		Token {
 			token_type: token_type,
@@ -260,21 +231,6 @@ impl Token {
 	///
 	/// If the value matches a known keyword, the token produced will be for the keyword,
 	/// otherwise the token will be for an identifier.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::location::Location;
-	/// use cactus::lexer::token::{Token, TokenType};
-	///
-	/// let location = Location::new(1, 1);
-	/// let value = "true".to_string();
-	/// let token = Token::from_ident(value, location);
-	///
-	/// assert_eq!(token.token_type, TokenType::True);
-	/// assert!(token.value.is_none());
-	/// assert_eq!(token.location.line, 1);
-	/// assert_eq!(token.location.column, 1);
-	/// ```
 	pub fn from_ident(value: String, location: Location) -> Token {
 		let tt = match value.as_ref() {
 			// keywords
@@ -322,18 +278,6 @@ impl Token {
 	}
 
 	/// Create a new instance of `Token` representing the end of the file.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::lexer::token::{Token, TokenType};
-	///
-	/// let token = Token::eof();
-	///
-	/// assert_eq!(token.token_type, TokenType::Eof);
-	/// assert!(token.value.is_none());
-	/// assert_eq!(token.location.line, 0);
-	/// assert_eq!(token.location.column, 0);
-	/// ```
 	pub fn eof() -> Token {
 		Token {
 			token_type: TokenType::Eof,

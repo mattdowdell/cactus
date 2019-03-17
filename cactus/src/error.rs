@@ -7,24 +7,28 @@ use std::fmt;
 
 use crate::location::Location;
 
+
 ///
 ///
 ///
-macro_rules! syntax_error {
-	($code:path, $location:expr, $message:tt) => (
-		CompilationError::new($code,
-			ErrorType::SyntaxError,
-			$location,
-			$message.to_string())
-	);
-	($code:path, $location:expr, $message:tt, $($arg:expr),+) => (
-		CompilationError::new($code,
-			ErrorType::SyntaxError,
-			$location,
-			format!($message, $($arg),+))
-	);
+pub fn syntax_error(error_code: ErrorCode, location: Location, message: String) -> CompilationError {
+	CompilationError::new(error_code,
+		ErrorType::SyntaxError,
+		location,
+		message)
 }
 
+///
+///
+///
+pub fn internal_error(error_code: ErrorCode, location: Location, message: String) -> CompilationError {
+	CompilationError::new(error_code,
+		ErrorType::InternalError,
+		location,
+		message)
+}
+
+/*
 ///
 ///
 ///
@@ -96,6 +100,7 @@ macro_rules! internal_error {
 			format!($message, $($arg),+))
 	);
 }
+*/
 
 ///
 ///
@@ -103,15 +108,16 @@ macro_rules! internal_error {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorCode {
 	// syntax errors
-	E0000, // break statement not within loop
-	E0001, // continue statement not within loop
-	E0002, // unable to convert token type to precedence
-	E0003, // unable to convert token type to prefix operator
-	E0004, // unable to convert token type to infix operator
-	E0005, // unexpected end of file
-	E0006, // unexpected token type
-	E0007, // non-identifier used for call expression
+	E0000, // unable to convert token type to precedence
+	E0001, // unexpected end of file
+	E0002, // unexpected token
+	E0003, // non-identifier starting call expression
+	E0004,
+	E0005,
+	E0006,
+	E0007,
 
+	/*
 	// type errors
 	E0200, // let statement value does not match type hint
 	E0201, // non-boolean expression in if condition expression
@@ -135,13 +141,15 @@ pub enum ErrorCode {
 	E0801, // imports
 	E0802, // elif in if statements
 	E0803, // analysing struct initialisation expressions
-
+	*/
 	// internal errors
-	E1000, // type_checker::TypeHint::from_ast_type for ast::Type::Unknown
-	E1001, // ast::Operator::allow_prefix for type_checker::TypeHint::{None, Unknown}
-	E1002, // ast::Operator::assignment_to_infix for non assignment operators
-	E1003, // ast::Literal::from_token for non-literal token type
-	E1004, // ast::Type::from_token for non-type token type
+	E1000,
+	E1001,
+	E1002,
+	E1003,
+	E1004,
+	E1005,
+
 }
 
 ///

@@ -20,6 +20,7 @@ use crate::{
 	},
 	parser::{
 		ast::{
+			Ast,
 			Module,
 			Definition,
 			Import,
@@ -53,13 +54,6 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
 	/// Create a new instance of a `Parser`.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::parser::parser::Parser;
-	///
-	/// let parser = Parser::new("fn example() { return 1; }");
-	/// ```
 	pub fn new(input: &'a str) -> Parser<'a> {
 		Parser {
 			lexer: Lexer::new(input).peekable(),
@@ -68,33 +62,17 @@ impl<'a> Parser<'a> {
 		}
 	}
 
-	/// Parse the input into a module.
-	///
-	/// # Example
-	/// ```
-	/// use cactus::parser::parser::Parser;
-	///
-	/// let mut parser = Parser::new("fn example() { return 1; }");
-	///
-	/// match parser.parse() {
-	/// 	Ok(module) => {
-	///	        // do something with module here
-	///     },
-	///     Err(errors) => {
-	///         for error in errors.iter() {
-	///             eprintln!("{}", error);
-	///         }
-	///     },
-	/// }
-	/// ```
-	pub fn parse(&mut self) -> Result<Module, Vec<CompilationError>> {
+	/// Parse the input into an Abstract Syntax Tree (AST).
+	pub fn parse(&mut self) -> Result<Ast, Vec<CompilationError>> {
 		let module = self.parse_module();
 
 		if self.errors.len() > 0 {
-			dbg!(module);
 			Err(self.errors.clone())
 		} else {
-			Ok(module)
+			let mut ast = Ast::new();
+			ast.push(module);
+
+			Ok(ast)
 		}
 
 
@@ -863,19 +841,23 @@ mod test {
 	#[test]
 	fn test_parse_import_module() {
 		let mut parser = Parser::new("import std;");
-		let expected = Module {
-			definitions: vec![
-				Definition::Import(
-					Import {
-						path: ident!("std"),
-					}
-				)
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Import(
+							Import {
+								path: ident!("std"),
+							}
+						)
+					],
+				},
 			],
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -886,19 +868,23 @@ mod test {
 	#[test]
 	fn test_parse_import_from_module() {
 		let mut parser = Parser::new("import std::example;");
-		let expected = Module {
-			definitions: vec![
-				Definition::Import(
-					Import {
-						path: ident_with_path("example", vec![ident!("std")])
-					}
-				)
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Import(
+							Import {
+								path: ident_with_path("example", vec![ident!("std")])
+							}
+						)
+					],
+				}
 			],
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -909,24 +895,28 @@ mod test {
 	#[test]
 	fn test_parse_enum() {
 		let mut parser = Parser::new("enum example { x, y, z }");
-		let expected = Module {
-			definitions: vec![
-				Definition::Enum(
-					Enum {
-						identifier: ident!("example"),
-						variants: vec![
-							ident!("x"),
-							ident!("y"),
-							ident!("z"),
-						]
-					}
-				),
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Enum(
+							Enum {
+								identifier: ident!("example"),
+								variants: vec![
+									ident!("x"),
+									ident!("y"),
+									ident!("z"),
+								]
+							}
+						),
+					]
+				}
 			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -937,24 +927,28 @@ mod test {
 	#[test]
 	fn test_parse_enum_with_trailing_comma() {
 		let mut parser = Parser::new("enum example { x, y, z, }");
-		let expected = Module {
-			definitions: vec![
-				Definition::Enum(
-					Enum {
-						identifier: ident!("example"),
-						variants: vec![
-							ident!("x"),
-							ident!("y"),
-							ident!("z"),
-						]
-					}
-				),
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Enum(
+							Enum {
+								identifier: ident!("example"),
+								variants: vec![
+									ident!("x"),
+									ident!("y"),
+									ident!("z"),
+								]
+							}
+						),
+					]
+				}
 			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -965,25 +959,29 @@ mod test {
 	#[test]
 	fn test_parse_struct() {
 		let mut parser = Parser::new("struct example { a: i32, b: u32, c: f32, d: bool }");
-		let expected = Module {
-			definitions: vec![
-				Definition::Struct(
-					Struct {
-						identifier: ident!("example"),
-						fields: vec![
-							param!("a", Type::Int32),
-							param!("b", Type::Uint32),
-							param!("c", Type::Float),
-							param!("d", Type::Bool),
-						]
-					}
-				),
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Struct(
+							Struct {
+								identifier: ident!("example"),
+								fields: vec![
+									param!("a", Type::Int32),
+									param!("b", Type::Uint32),
+									param!("c", Type::Float),
+									param!("d", Type::Bool),
+								]
+							}
+						),
+					]
+				}
 			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -994,25 +992,29 @@ mod test {
 	#[test]
 	fn test_parse_struct_with_trailing_comma() {
 		let mut parser = Parser::new("struct example { a: i32, b: u32, c: f32, d: bool }");
-		let expected = Module {
-			definitions: vec![
-				Definition::Struct(
-					Struct {
-						identifier: ident!("example"),
-						fields: vec![
-							param!("a", Type::Int32),
-							param!("b", Type::Uint32),
-							param!("c", Type::Float),
-							param!("d", Type::Bool),
-						]
-					}
-				),
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Struct(
+							Struct {
+								identifier: ident!("example"),
+								fields: vec![
+									param!("a", Type::Int32),
+									param!("b", Type::Uint32),
+									param!("c", Type::Float),
+									param!("d", Type::Bool),
+								]
+							}
+						),
+					]
+				}
 			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1023,29 +1025,33 @@ mod test {
 	#[test]
 	fn test_parse_struct_custom_type() {
 		let mut parser = Parser::new("struct example { a: Test }");
-		let expected = Module {
-			definitions: vec![
-				Definition::Struct(
-					Struct {
-						identifier: ident!("example"),
-						fields: vec![
-							param!(
-								"a",
-								Type::Custom(
-									Box::new(
-										ident!("Test")
-									)
-								)
-							),
-						]
-					}
-				),
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Struct(
+							Struct {
+								identifier: ident!("example"),
+								fields: vec![
+									param!(
+										"a",
+										Type::Custom(
+											Box::new(
+												ident!("Test")
+											)
+										)
+									),
+								]
+							}
+						),
+					]
+				}
 			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1056,34 +1062,38 @@ mod test {
 	#[test]
 	fn test_parse_struct_custom_imported_type() {
 		let mut parser = Parser::new("struct example { a: std::Test }");
-		let expected = Module {
-			definitions: vec![
-				Definition::Struct(
-					Struct {
-						identifier: ident!("example"),
-						fields: vec![
-							param!(
-								"a",
-								Type::Custom(
-									Box::new(
-										ident_with_path(
-											"Test",
-											vec![
-												ident!("std")
-											]
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Struct(
+							Struct {
+								identifier: ident!("example"),
+								fields: vec![
+									param!(
+										"a",
+										Type::Custom(
+											Box::new(
+												ident_with_path(
+													"Test",
+													vec![
+														ident!("std")
+													]
+												)
+											)
 										)
-									)
-								)
-							),
-						]
-					}
-				),
+									),
+								]
+							}
+						),
+					]
+				}
 			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1094,25 +1104,29 @@ mod test {
 	#[test]
 	fn test_parse_function_empty() {
 		let mut parser = Parser::new("fn x() {}");
-		let expected = Module {
-			definitions: vec![
-				Definition::Function(
-					Function {
-						identifier: ident!("x"),
-						arguments: vec![],
-						return_type: None,
-						body: Block {
-							statements: vec![],
-							id: 0,
-						},
-					}
-				)
-			],
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Function(
+							Function {
+								identifier: ident!("x"),
+								arguments: vec![],
+								return_type: None,
+								body: Block {
+									statements: vec![],
+									id: 0,
+								},
+							}
+						)
+					],
+				}
+			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1138,25 +1152,29 @@ mod test {
 	#[test]
 	fn test_parse_function_empty_with_type_hint() {
 		let mut parser = Parser::new("fn x() -> i32 {}");
-		let expected = Module {
-			definitions: vec![
-				Definition::Function(
-					Function {
-						identifier: ident!("x"),
-						arguments: vec![],
-						return_type: Some(Type::Int32),
-						body: Block {
-							statements: vec![],
-							id: 0,
-						},
-					}
-				)
-			],
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Function(
+							Function {
+								identifier: ident!("x"),
+								arguments: vec![],
+								return_type: Some(Type::Int32),
+								body: Block {
+									statements: vec![],
+									id: 0,
+								},
+							}
+						)
+					],
+				}
+			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1167,31 +1185,35 @@ mod test {
 	#[test]
 	fn test_parse_function_empty_with_custom_type_hint() {
 		let mut parser = Parser::new("fn x() -> Test {}");
-		let expected = Module {
-			definitions: vec![
-				Definition::Function(
-					Function {
-						identifier: ident!("x"),
-						arguments: vec![],
-						return_type: Some(
-							Type::Custom(
-								Box::new(
-									ident!("Test")
-								)
-							)
-						),
-						body: Block {
-							statements: vec![],
-							id: 0,
-						},
-					}
-				)
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Function(
+							Function {
+								identifier: ident!("x"),
+								arguments: vec![],
+								return_type: Some(
+									Type::Custom(
+										Box::new(
+											ident!("Test")
+										)
+									)
+								),
+								body: Block {
+									statements: vec![],
+									id: 0,
+								},
+							}
+						)
+					],
+				}
 			],
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1202,36 +1224,40 @@ mod test {
 	#[test]
 	fn test_parse_function_empty_with_custom_imported_type_hint() {
 		let mut parser = Parser::new("fn x() -> std::Test {}");
-		let expected = Module {
-			definitions: vec![
-				Definition::Function(
-					Function {
-						identifier: ident!("x"),
-						arguments: vec![],
-						return_type: Some(
-							Type::Custom(
-								Box::new(
-									ident_with_path(
-										"Test",
-										vec![
-											ident!("std")
-										]
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Function(
+							Function {
+								identifier: ident!("x"),
+								arguments: vec![],
+								return_type: Some(
+									Type::Custom(
+										Box::new(
+											ident_with_path(
+												"Test",
+												vec![
+													ident!("std")
+												]
+											)
+										)
 									)
-								)
-							)
-						),
-						body: Block {
-							statements: vec![],
-							id: 0,
-						},
-					}
-				)
-			],
+								),
+								body: Block {
+									statements: vec![],
+									id: 0,
+								},
+							}
+						)
+					],
+				}
+			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1242,27 +1268,31 @@ mod test {
 	#[test]
 	fn test_parse_function_empty_with_single_param() {
 		let mut parser = Parser::new("fn x(a: i32) {}");
-		let expected = Module {
-			definitions: vec![
-				Definition::Function(
-					Function {
-						identifier: ident!("x"),
-						arguments: vec![
-							param!("a", Type::Int32),
-						],
-						return_type: None,
-						body: Block {
-							statements: vec![],
-							id: 0,
-						},
-					}
-				)
-			],
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Function(
+							Function {
+								identifier: ident!("x"),
+								arguments: vec![
+									param!("a", Type::Int32),
+								],
+								return_type: None,
+								body: Block {
+									statements: vec![],
+									id: 0,
+								},
+							}
+						)
+					],
+				}
+			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1288,27 +1318,31 @@ mod test {
 	#[test]
 	fn test_parse_function_empty_with_single_param_and_type_hint() {
 		let mut parser = Parser::new("fn x(a: i32) -> i32 {}");
-		let expected = Module {
-			definitions: vec![
-				Definition::Function(
-					Function {
-						identifier: ident!("x"),
-						arguments: vec![
-							param!("a", Type::Int32),
-						],
-						return_type: Some(Type::Int32),
-						body: Block {
-							statements: vec![],
-							id: 0,
-						},
-					}
-				)
-			],
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Function(
+							Function {
+								identifier: ident!("x"),
+								arguments: vec![
+									param!("a", Type::Int32),
+								],
+								return_type: Some(Type::Int32),
+								body: Block {
+									statements: vec![],
+									id: 0,
+								},
+							}
+						)
+					],
+				}
+			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1319,27 +1353,31 @@ mod test {
 	#[test]
 	fn test_parse_function_empty_with_single_param_trailing_comma() {
 		let mut parser = Parser::new("fn x(a: i32,) {}");
-		let expected = Module {
-			definitions: vec![
-				Definition::Function(
-					Function {
-						identifier: ident!("x"),
-						arguments: vec![
-							param!("a", Type::Int32),
-						],
-						return_type: None,
-						body: Block {
-							statements: vec![],
-							id: 0,
-						},
-					}
-				)
-			],
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Function(
+							Function {
+								identifier: ident!("x"),
+								arguments: vec![
+									param!("a", Type::Int32),
+								],
+								return_type: None,
+								body: Block {
+									statements: vec![],
+									id: 0,
+								},
+							}
+						)
+					],
+				}
+			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1350,30 +1388,34 @@ mod test {
 	#[test]
 	fn test_parse_function_empty_with_multiple_params() {
 		let mut parser = Parser::new("fn x(a: i32, b: u32, c: f32, d: bool) {}");
-		let expected = Module {
-			definitions: vec![
-				Definition::Function(
-					Function {
-						identifier: ident!("x"),
-						arguments: vec![
-							param!("a", Type::Int32),
-							param!("b", Type::Uint32),
-							param!("c", Type::Float),
-							param!("d", Type::Bool),
-						],
-						return_type: None,
-						body: Block {
-							statements: vec![],
-							id: 0,
-						},
-					}
-				)
-			],
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Function(
+							Function {
+								identifier: ident!("x"),
+								arguments: vec![
+									param!("a", Type::Int32),
+									param!("b", Type::Uint32),
+									param!("c", Type::Float),
+									param!("d", Type::Bool),
+								],
+								return_type: None,
+								body: Block {
+									statements: vec![],
+									id: 0,
+								},
+							}
+						)
+					],
+				}
+			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1384,30 +1426,34 @@ mod test {
 	#[test]
 	fn test_parse_function_empty_with_multiple_params_and_type_hint() {
 		let mut parser = Parser::new("fn x(a: i32, b: u32, c: f32, d: bool) -> i32 {}");
-		let expected = Module {
-			definitions: vec![
-				Definition::Function(
-					Function {
-						identifier: ident!("x"),
-						arguments: vec![
-							param!("a", Type::Int32),
-							param!("b", Type::Uint32),
-							param!("c", Type::Float),
-							param!("d", Type::Bool),
-						],
-						return_type: Some(Type::Int32),
-						body: Block {
-							statements: vec![],
-							id: 0,
-						},
-					}
-				)
-			],
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Function(
+							Function {
+								identifier: ident!("x"),
+								arguments: vec![
+									param!("a", Type::Int32),
+									param!("b", Type::Uint32),
+									param!("c", Type::Float),
+									param!("d", Type::Bool),
+								],
+								return_type: Some(Type::Int32),
+								body: Block {
+									statements: vec![],
+									id: 0,
+								},
+							}
+						)
+					],
+				}
+			]
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -1418,30 +1464,34 @@ mod test {
 	#[test]
 	fn test_parse_function_empty_with_multiple_params_trailing_comma() {
 		let mut parser = Parser::new("fn x(a: i32, b: u32, c: f32, d: bool,) {}");
-		let expected = Module {
-			definitions: vec![
-				Definition::Function(
-					Function {
-						identifier: ident!("x"),
-						arguments: vec![
-							param!("a", Type::Int32),
-							param!("b", Type::Uint32),
-							param!("c", Type::Float),
-							param!("d", Type::Bool),
-						],
-						return_type: None,
-						body: Block {
-							statements: vec![],
-							id: 0,
-						}
-					}
-				),
+		let expected = Ast {
+			modules: vec![
+				Module {
+					definitions: vec![
+						Definition::Function(
+							Function {
+								identifier: ident!("x"),
+								arguments: vec![
+									param!("a", Type::Int32),
+									param!("b", Type::Uint32),
+									param!("c", Type::Float),
+									param!("d", Type::Bool),
+								],
+								return_type: None,
+								body: Block {
+									statements: vec![],
+									id: 0,
+								}
+							}
+						),
+					],
+				},
 			],
 		};
 
 		match parser.parse() {
-			Ok(module) => {
-				assert_eq!(module, expected);
+			Ok(ast) => {
+				assert_eq!(ast, expected);
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);

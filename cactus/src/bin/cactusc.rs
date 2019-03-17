@@ -4,21 +4,12 @@
 
 #[macro_use]
 extern crate clap;
-extern crate cactus;
 
-use std::{
-	fs::File,
-	io::Read,
-};
+use std::fs::File;
+use std::io::Read;
+
 use clap::{App, Arg};
-use cactus::{
-	parser::{
-		ast::Ast,
-		parser::Parser,
-	},
-	analyser::analyser::Analyser,
-	flowgraph::flowgraph::FlowGraph,
-};
+
 
 fn main() {
 	let matches = App::new("Cactus compiler")
@@ -49,40 +40,13 @@ fn main() {
 			.expect("Unable to read file");
 	}
 
-	compile(&contents);
-}
+	println!("{}", contents);
 
+	/*
+	let compiler = Compiler::new();
 
-fn compile(input: &str) {
-	let mut parser = Parser::new(input);
-	let res = parser.parse();
-
-	if res.is_err() {
-		let errors = res.err().unwrap();
-
-		for error in errors.iter() {
-			eprintln!("{}", error);
-		}
-
-		std::process::exit(1);
-	}
-
-	let module = res.unwrap();
-	let mut ast = Ast::new();
-	ast.push(module);
-
-	let mut analyser = Analyser::new(ast);
-
-	match analyser.analyse_ast() {
-		Ok(ast) => {
-			let mut flowgraph = FlowGraph::new();
-
-			flowgraph.convert_ast(ast);
-			flowgraph.to_basic_blocks();
-			flowgraph.follow_graph("main".to_string());
-
-			let instructions = flowgraph.flatten_basic_blocks();
-
+	match compiler.compile(&contents) {
+		Ok(instructions) => {
 			for instr in instructions.iter() {
 				println!("{}", instr);
 			}
@@ -95,4 +59,5 @@ fn compile(input: &str) {
 			std::process::exit(1);
 		}
 	}
+	*/
 }
