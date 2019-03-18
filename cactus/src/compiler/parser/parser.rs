@@ -74,7 +74,7 @@ impl<'a> Parser<'a> {
 				Err(syntax_error(ErrorCode::E0002,
 					token.location,
 					format!("Unexpected token: {} ({:?}). Expected: {} ({:?})",
-						token, token,
+						token, token.token_type,
 						token_type, token_type)))
 			}
 		}
@@ -133,7 +133,7 @@ impl<'a> Parser<'a> {
 				Err(syntax_error(ErrorCode::E0002,
 					token.location,
 					format!("Unexpected token: {} ({:?}). Expected one of: {}.",
-						token, token,
+						token, token.token_type,
 						TokenType::Function)))
 			}
 		}
@@ -150,12 +150,12 @@ impl<'a> Parser<'a> {
 
 		self.expect_peek(TokenType::RightParen)?;
 
-		let return_type: Option<TypeHint>;
+		let return_type: TypeHint;
 
 		if self.expect_peek(TokenType::Arrow).is_ok() {
-			return_type = Some(self.parse_type()?);
+			return_type = self.parse_type()?;
 		} else {
-			return_type = None;
+			return_type = TypeHint::None;
 		}
 
 		let body = self.parse_block()?;
@@ -326,8 +326,8 @@ impl<'a> Parser<'a> {
 			}
 
 			if self.expect_peek(TokenType::Else).is_ok() {
-				let literal_type = LiteralType::True;
-				let literal = Literal::new(TypeHint::Bool, literal_type, Location::end());
+				let literal_value = LiteralValue::True;
+				let literal = Literal::new(TypeHint::Bool, literal_value, Location::end());
 
 				let condition = Expression::Literal(literal);
 				let consequence = self.parse_block()?;
@@ -537,7 +537,7 @@ impl<'a> Parser<'a> {
 				return Err(syntax_error(ErrorCode::E0002,
 					token.location,
 					format!("Unexpected token: {} ({:?}). Expected: {} ({:?})",
-						token, token,
+						token, token.token_type,
 						TokenType::RightParen, TokenType::RightParen)));
 			}
 		}
@@ -555,7 +555,6 @@ impl<'a> Parser<'a> {
 	}
 }
 
-/*
 #[cfg(test)]
 mod test {
 	use super::*;
@@ -570,324 +569,70 @@ mod test {
 		)
 	}
 
+	macro_rules! loc {
+		($line:tt, $column:tt) => (
+			Location::new($line, $column)
+		)
+	}
+
 	macro_rules! ident {
-		($value:tt) => (
-			Identifier::new($value.to_string())
+		($value:tt, $loc:expr) => (
+			Identifier::new($value.to_string(), $loc)
 		)
 	}
 
-	macro_rules! param {
-		($value:tt, $type_hint:expr) => (
-			Parameter::new(ident!($value), $type_hint)
+	macro_rules! arg {
+		($value:tt, $loc:expr, $type_hint:expr) => (
+			Argument::new(ident!($value, $loc), $type_hint)
 		)
-	}
-
-	macro_rules! field {
-		($name:tt, $value:expr) => {
-			StructField::new(ident!($name), $value)
-		}
 	}
 
 	macro_rules! expr_literal_int {
-		($value:tt) => (
+		($value:tt, $loc:expr) => (
 			Expression::Literal(
-				Literal::Integer($value.to_string())
+				Literal {
+					type_hint: TypeHint::Int32,
+					value: LiteralValue::Int32($value.to_string()),
+					location: $loc,
+				}
 			)
 		)
 	}
 
 	macro_rules! expr_literal_float {
-		($value:tt) => (
+		($value:tt, $loc:expr) => (
 			Expression::Literal(
-				Literal::Float($value.to_string())
+				Literal {
+					type_hint: TypeHint::Float,
+					value: LiteralValue::Float($value.to_string()),
+					location: $loc,
+				}
 			)
 		)
 	}
 
 	macro_rules! expr_literal_true {
-		() => (
+		($loc:expr) => (
 			Expression::Literal(
-				Literal::Boolean(true)
+				Literal {
+					type_hint: TypeHint::Bool,
+					value: LiteralValue::True,
+					location: $loc,
+				}
 			)
 		)
 	}
 
 	macro_rules! expr_literal_false {
-		() => (
+		($loc:expr) => (
 			Expression::Literal(
-				Literal::Boolean(false)
+				Literal {
+					type_hint: TypeHint::Bool,
+					value: LiteralValue::False,
+					location: $loc,
+				}
 			)
 		)
-	}
-
-	fn ident_with_path(value: &str, path: Vec<Identifier>) -> Identifier {
-		let mut ident = ident!(value);
-		ident.set_path(path);
-		ident
-	}
-
-
-	#[test]
-	fn test_parse_import_module() {
-		let mut parser = Parser::new("import std;");
-		let expected = Ast {
-			modules: vec![
-				Module {
-					definitions: vec![
-						Definition::Import(
-							Import {
-								path: ident!("std"),
-							}
-						)
-					],
-				},
-			],
-		};
-
-		match parser.parse() {
-			Ok(ast) => {
-				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_import_from_module() {
-		let mut parser = Parser::new("import std::example;");
-		let expected = Ast {
-			modules: vec![
-				Module {
-					definitions: vec![
-						Definition::Import(
-							Import {
-								path: ident_with_path("example", vec![ident!("std")])
-							}
-						)
-					],
-				}
-			],
-		};
-
-		match parser.parse() {
-			Ok(ast) => {
-				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_enum() {
-		let mut parser = Parser::new("enum example { x, y, z }");
-		let expected = Ast {
-			modules: vec![
-				Module {
-					definitions: vec![
-						Definition::Enum(
-							Enum {
-								identifier: ident!("example"),
-								variants: vec![
-									ident!("x"),
-									ident!("y"),
-									ident!("z"),
-								]
-							}
-						),
-					]
-				}
-			]
-		};
-
-		match parser.parse() {
-			Ok(ast) => {
-				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_enum_with_trailing_comma() {
-		let mut parser = Parser::new("enum example { x, y, z, }");
-		let expected = Ast {
-			modules: vec![
-				Module {
-					definitions: vec![
-						Definition::Enum(
-							Enum {
-								identifier: ident!("example"),
-								variants: vec![
-									ident!("x"),
-									ident!("y"),
-									ident!("z"),
-								]
-							}
-						),
-					]
-				}
-			]
-		};
-
-		match parser.parse() {
-			Ok(ast) => {
-				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_struct() {
-		let mut parser = Parser::new("struct example { a: i32, b: u32, c: f32, d: bool }");
-		let expected = Ast {
-			modules: vec![
-				Module {
-					definitions: vec![
-						Definition::Struct(
-							Struct {
-								identifier: ident!("example"),
-								fields: vec![
-									param!("a", Type::Int32),
-									param!("b", Type::Uint32),
-									param!("c", Type::Float),
-									param!("d", Type::Bool),
-								]
-							}
-						),
-					]
-				}
-			]
-		};
-
-		match parser.parse() {
-			Ok(ast) => {
-				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_struct_with_trailing_comma() {
-		let mut parser = Parser::new("struct example { a: i32, b: u32, c: f32, d: bool }");
-		let expected = Ast {
-			modules: vec![
-				Module {
-					definitions: vec![
-						Definition::Struct(
-							Struct {
-								identifier: ident!("example"),
-								fields: vec![
-									param!("a", Type::Int32),
-									param!("b", Type::Uint32),
-									param!("c", Type::Float),
-									param!("d", Type::Bool),
-								]
-							}
-						),
-					]
-				}
-			]
-		};
-
-		match parser.parse() {
-			Ok(ast) => {
-				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_struct_custom_type() {
-		let mut parser = Parser::new("struct example { a: Test }");
-		let expected = Ast {
-			modules: vec![
-				Module {
-					definitions: vec![
-						Definition::Struct(
-							Struct {
-								identifier: ident!("example"),
-								fields: vec![
-									param!(
-										"a",
-										Type::Custom(
-											Box::new(
-												ident!("Test")
-											)
-										)
-									),
-								]
-							}
-						),
-					]
-				}
-			]
-		};
-
-		match parser.parse() {
-			Ok(ast) => {
-				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_struct_custom_imported_type() {
-		let mut parser = Parser::new("struct example { a: std::Test }");
-		let expected = Ast {
-			modules: vec![
-				Module {
-					definitions: vec![
-						Definition::Struct(
-							Struct {
-								identifier: ident!("example"),
-								fields: vec![
-									param!(
-										"a",
-										Type::Custom(
-											Box::new(
-												ident_with_path(
-													"Test",
-													vec![
-														ident!("std")
-													]
-												)
-											)
-										)
-									),
-								]
-							}
-						),
-					]
-				}
-			]
-		};
-
-		match parser.parse() {
-			Ok(ast) => {
-				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
 	}
 
 	#[test]
@@ -898,15 +643,13 @@ mod test {
 				Module {
 					definitions: vec![
 						Definition::Function(
-							Function {
-								identifier: ident!("x"),
-								arguments: vec![],
-								return_type: None,
-								body: Block {
-									statements: vec![],
-									id: 0,
-								},
-							}
+							Function::new(
+								ident!("x", loc!(1, 4)),
+								vec![],
+								TypeHint::None,
+								Block::new(0, loc!(1, 8)),
+								loc!(1, 1),
+							)
 						)
 					],
 				}
@@ -916,21 +659,6 @@ mod test {
 		match parser.parse() {
 			Ok(ast) => {
 				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
-	#[should_panic]
-	fn test_parse_function_empty_invalid_identifier() {
-		let mut parser = Parser::new("fn a::b() {}");
-
-		match parser.parse() {
-			Ok(_) => {
-				println!("Unexpected test success");
 			},
 			Err(errors) => {
 				output_parser_errors!(errors);
@@ -946,98 +674,13 @@ mod test {
 				Module {
 					definitions: vec![
 						Definition::Function(
-							Function {
-								identifier: ident!("x"),
-								arguments: vec![],
-								return_type: Some(Type::Int32),
-								body: Block {
-									statements: vec![],
-									id: 0,
-								},
-							}
-						)
-					],
-				}
-			]
-		};
-
-		match parser.parse() {
-			Ok(ast) => {
-				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_function_empty_with_custom_type_hint() {
-		let mut parser = Parser::new("fn x() -> Test {}");
-		let expected = Ast {
-			modules: vec![
-				Module {
-					definitions: vec![
-						Definition::Function(
-							Function {
-								identifier: ident!("x"),
-								arguments: vec![],
-								return_type: Some(
-									Type::Custom(
-										Box::new(
-											ident!("Test")
-										)
-									)
-								),
-								body: Block {
-									statements: vec![],
-									id: 0,
-								},
-							}
-						)
-					],
-				}
-			],
-		};
-
-		match parser.parse() {
-			Ok(ast) => {
-				assert_eq!(ast, expected);
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_function_empty_with_custom_imported_type_hint() {
-		let mut parser = Parser::new("fn x() -> std::Test {}");
-		let expected = Ast {
-			modules: vec![
-				Module {
-					definitions: vec![
-						Definition::Function(
-							Function {
-								identifier: ident!("x"),
-								arguments: vec![],
-								return_type: Some(
-									Type::Custom(
-										Box::new(
-											ident_with_path(
-												"Test",
-												vec![
-													ident!("std")
-												]
-											)
-										)
-									)
-								),
-								body: Block {
-									statements: vec![],
-									id: 0,
-								},
-							}
+							Function::new(
+								ident!("x", loc!(1, 4)),
+								vec![],
+								TypeHint::Int32,
+								Block::new(0, loc!(1, 15)),
+								loc!(1, 1),
+							)
 						)
 					],
 				}
@@ -1062,17 +705,15 @@ mod test {
 				Module {
 					definitions: vec![
 						Definition::Function(
-							Function {
-								identifier: ident!("x"),
-								arguments: vec![
-									param!("a", Type::Int32),
+							Function::new(
+								ident!("x", loc!(1, 4)),
+								vec![
+									arg!("a", loc!(1, 6), TypeHint::Int32),
 								],
-								return_type: None,
-								body: Block {
-									statements: vec![],
-									id: 0,
-								},
-							}
+								TypeHint::None,
+								Block::new(0, loc!(1, 14)),
+								loc!(1, 1),
+							)
 						)
 					],
 				}
@@ -1090,21 +731,6 @@ mod test {
 	}
 
 	#[test]
-	#[should_panic]
-	fn test_parse_function_empty_with_single_param_invalid_identifier() {
-		let mut parser = Parser::new("fn x(a::b: i32) {}");
-
-		match parser.parse() {
-			Ok(_) => {
-				println!("Unexpected test success");
-			},
-			Err(errors) => {
-				output_parser_errors!(errors);
-			}
-		}
-	}
-
-	#[test]
 	fn test_parse_function_empty_with_single_param_and_type_hint() {
 		let mut parser = Parser::new("fn x(a: i32) -> i32 {}");
 		let expected = Ast {
@@ -1112,17 +738,15 @@ mod test {
 				Module {
 					definitions: vec![
 						Definition::Function(
-							Function {
-								identifier: ident!("x"),
-								arguments: vec![
-									param!("a", Type::Int32),
+							Function::new(
+								ident!("x", loc!(1, 4)),
+								vec![
+									arg!("a", loc!(1, 6), TypeHint::Int32),
 								],
-								return_type: Some(Type::Int32),
-								body: Block {
-									statements: vec![],
-									id: 0,
-								},
-							}
+								TypeHint::Int32,
+								Block::new(0, loc!(1, 21)),
+								loc!(1, 1),
+							)
 						)
 					],
 				}
@@ -1147,17 +771,15 @@ mod test {
 				Module {
 					definitions: vec![
 						Definition::Function(
-							Function {
-								identifier: ident!("x"),
-								arguments: vec![
-									param!("a", Type::Int32),
+							Function::new(
+								ident!("x", loc!(1, 4)),
+								vec![
+									arg!("a", loc!(1, 6), TypeHint::Int32),
 								],
-								return_type: None,
-								body: Block {
-									statements: vec![],
-									id: 0,
-								},
-							}
+								TypeHint::None,
+								Block::new(0, loc!(1, 15)),
+								loc!(1, 1),
+							)
 						)
 					],
 				}
@@ -1176,26 +798,23 @@ mod test {
 
 	#[test]
 	fn test_parse_function_empty_with_multiple_params() {
-		let mut parser = Parser::new("fn x(a: i32, b: u32, c: f32, d: bool) {}");
+		let mut parser = Parser::new("fn x(a: i32, b: f32, c: bool) {}");
 		let expected = Ast {
 			modules: vec![
 				Module {
 					definitions: vec![
 						Definition::Function(
-							Function {
-								identifier: ident!("x"),
-								arguments: vec![
-									param!("a", Type::Int32),
-									param!("b", Type::Uint32),
-									param!("c", Type::Float),
-									param!("d", Type::Bool),
+							Function::new(
+								ident!("x", loc!(1, 4)),
+								vec![
+									arg!("a", loc!(1, 6), TypeHint::Int32),
+									arg!("b", loc!(1, 14), TypeHint::Float),
+									arg!("c", loc!(1, 22), TypeHint::Bool),
 								],
-								return_type: None,
-								body: Block {
-									statements: vec![],
-									id: 0,
-								},
-							}
+								TypeHint::None,
+								Block::new(0, loc!(1, 31)),
+								loc!(1, 1),
+							)
 						)
 					],
 				}
@@ -1214,26 +833,23 @@ mod test {
 
 	#[test]
 	fn test_parse_function_empty_with_multiple_params_and_type_hint() {
-		let mut parser = Parser::new("fn x(a: i32, b: u32, c: f32, d: bool) -> i32 {}");
+		let mut parser = Parser::new("fn x(a: i32, b: f32, c: bool) -> i32 {}");
 		let expected = Ast {
 			modules: vec![
 				Module {
 					definitions: vec![
 						Definition::Function(
-							Function {
-								identifier: ident!("x"),
-								arguments: vec![
-									param!("a", Type::Int32),
-									param!("b", Type::Uint32),
-									param!("c", Type::Float),
-									param!("d", Type::Bool),
+							Function::new(
+								ident!("x", loc!(1, 4)),
+								vec![
+									arg!("a", loc!(1, 6), TypeHint::Int32),
+									arg!("b", loc!(1, 14), TypeHint::Float),
+									arg!("c", loc!(1, 22), TypeHint::Bool),
 								],
-								return_type: Some(Type::Int32),
-								body: Block {
-									statements: vec![],
-									id: 0,
-								},
-							}
+								TypeHint::Int32,
+								Block::new(0, loc!(1, 38)),
+								loc!(1, 1),
+							)
 						)
 					],
 				}
@@ -1252,26 +868,26 @@ mod test {
 
 	#[test]
 	fn test_parse_function_empty_with_multiple_params_trailing_comma() {
-		let mut parser = Parser::new("fn x(a: i32, b: u32, c: f32, d: bool,) {}");
+		let mut parser = Parser::new("fn x(a: i32, b: f32, c: bool,) {}");
 		let expected = Ast {
 			modules: vec![
 				Module {
 					definitions: vec![
 						Definition::Function(
-							Function {
-								identifier: ident!("x"),
-								arguments: vec![
-									param!("a", Type::Int32),
-									param!("b", Type::Uint32),
-									param!("c", Type::Float),
-									param!("d", Type::Bool),
+							Function::new(
+								ident!("x", loc!(1, 4)),
+								vec![
+									arg!("a", loc!(1, 6), TypeHint::Int32),
+									arg!("b", loc!(1, 14), TypeHint::Float),
+									arg!("c", loc!(1, 22), TypeHint::Bool),
 								],
-								return_type: None,
-								body: Block {
-									statements: vec![],
-									id: 0,
-								}
-							}
+								TypeHint::None,
+								Block::new(
+									0,
+									loc!(1, 32),
+								),
+								loc!(1, 1),
+							)
 						),
 					],
 				},
@@ -1293,16 +909,16 @@ mod test {
 		let mut parser = Parser::new("true; false; 5; 5.0;");
 		let expected = vec![
 			Statement::Expression(
-				expr_literal_true!(),
+				expr_literal_true!(loc!(1, 1)),
 			),
 			Statement::Expression(
-				expr_literal_false!(),
+				expr_literal_false!(loc!(1, 7)),
 			),
 			Statement::Expression(
-				expr_literal_int!("5"),
+				expr_literal_int!("5", loc!(1, 14)),
 			),
 			Statement::Expression(
-				expr_literal_float!("5.0"),
+				expr_literal_float!("5.0", loc!(1, 17)),
 			),
 		];
 
@@ -1324,69 +940,17 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Identifier(
-					ident!("foo"),
+					ident!("foo", loc!(1, 1)),
 				),
 			),
 			Statement::Expression(
 				Expression::Identifier(
-					ident!("bar"),
+					ident!("bar", loc!(1, 6)),
 				),
 			),
 			Statement::Expression(
 				Expression::Identifier(
-					ident!("baz"),
-				),
-			),
-		];
-
-		for expected in expected.iter() {
-			let output = parser.parse_expr_statement();
-
-			if output.is_ok() {
-				assert_eq!(&output.unwrap(), expected);
-			} else {
-				println!("{}", output.err().unwrap());
-				panic!("Unexpected test failure")
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_expression_struct() {
-		let mut parser = Parser::new("{ a: 5, b: 10 };");
-		let expected = vec![
-			Statement::Expression(
-				Expression::Struct(
-					vec![
-						field!("a", expr_literal_int!("5")),
-						field!("b", expr_literal_int!("10")),
-					]
-				),
-			),
-		];
-
-		for expected in expected.iter() {
-			let output = parser.parse_expr_statement();
-
-			if output.is_ok() {
-				assert_eq!(&output.unwrap(), expected);
-			} else {
-				println!("{}", output.err().unwrap());
-				panic!("Unexpected test failure")
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_expression_struct_trailing_comma() {
-		let mut parser = Parser::new("{ a: 5, b: 10, };");
-		let expected = vec![
-			Statement::Expression(
-				Expression::Struct(
-					vec![
-						field!("a", expr_literal_int!("5")),
-						field!("b", expr_literal_int!("10")),
-					]
+					ident!("baz", loc!(1, 11)),
 				),
 			),
 		];
@@ -1409,32 +973,10 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Call(
-					ident!("example"),
-					vec![]
-				),
-			),
-		];
-
-		for expected in expected.iter() {
-			let output = parser.parse_expr_statement();
-
-			if output.is_ok() {
-				assert_eq!(&output.unwrap(), expected);
-			} else {
-				println!("{}", output.err().unwrap());
-				panic!("Unexpected test failure")
-			}
-		}
-	}
-
-	#[test]
-	fn test_parse_expression_call_imported() {
-		let mut parser = Parser::new("std::example();");
-		let expected = vec![
-			Statement::Expression(
-				Expression::Call(
-					ident_with_path("example", vec![ident!("std")]),
-					vec![]
+					Call::new(
+						ident!("example", loc!(1, 1)),
+						vec![],
+					)
 				),
 			),
 		];
@@ -1457,10 +999,12 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Call(
-					ident!("example"),
-					vec![
-						expr_literal_int!("5"),
-					]
+					Call::new(
+						ident!("example", loc!(1, 1)),
+						vec![
+							expr_literal_int!("5", loc!(1, 9)),
+						],
+					)
 				),
 			),
 		];
@@ -1483,12 +1027,14 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Call(
-					ident!("example"),
-					vec![
-						expr_literal_int!("5"),
-					]
+					Call::new(
+						ident!("example", loc!(1, 1)),
+						vec![
+							expr_literal_int!("5", loc!(1, 9)),
+						],
+					)
 				),
-			),
+			)
 		];
 
 		for expected in expected.iter() {
@@ -1509,11 +1055,13 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Call(
-					ident!("example"),
-					vec![
-						expr_literal_int!("5"),
-						Expression::Identifier(ident!("x")),
-					]
+					Call::new(
+						ident!("example", loc!(1, 1)),
+						vec![
+							expr_literal_int!("5", loc!(1, 9)),
+							Expression::Identifier(ident!("x", loc!(1, 12))),
+						],
+					)
 				),
 			),
 		];
@@ -1536,11 +1084,13 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Call(
-					ident!("example"),
-					vec![
-						expr_literal_int!("5"),
-						Expression::Identifier(ident!("x")),
-					]
+					Call::new(
+						ident!("example", loc!(1, 1)),
+						vec![
+							expr_literal_int!("5", loc!(1, 9)),
+							Expression::Identifier(ident!("x", loc!(1, 12))),
+						],
+					)
 				),
 			),
 		];
@@ -1563,20 +1113,29 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Prefix(
-					Operator::UnaryMinus,
-					Box::new(expr_literal_int!("5")),
+					Prefix::new(
+						Operator::UnaryMinus,
+						expr_literal_int!("5", loc!(1, 2)),
+						loc!(1, 1),
+					)
 				)
 			),
 			Statement::Expression(
 				Expression::Prefix(
-					Operator::Not,
-					Box::new(Expression::Identifier(ident!("x"))),
+					Prefix::new(
+						Operator::Not,
+						Expression::Identifier(ident!("x", loc!(1, 9))),
+						loc!(1, 5),
+					)
 				)
 			),
 			Statement::Expression(
 				Expression::Prefix(
-					Operator::BitCompl,
-					Box::new(expr_literal_int!("10")),
+					Prefix::new(
+						Operator::BitCompl,
+						expr_literal_int!("10", loc!(1, 13)),
+						loc!(1, 12),
+					)
 				)
 			),
 		];
@@ -1599,37 +1158,47 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::Plus,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 1))),
+						operator: Operator::Plus,
+						right: Box::new(expr_literal_int!("1", loc!(1, 5))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::Minus,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 8))),
+						operator: Operator::Minus,
+						right: Box::new(expr_literal_int!("1", loc!(1, 12))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::Multiply,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 15))),
+						operator: Operator::Multiply,
+						right: Box::new(expr_literal_int!("1", loc!(1, 19))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::Divide,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 22))),
+						operator: Operator::Divide,
+						right: Box::new(expr_literal_int!("1", loc!(1, 26))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::Modulo,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 29))),
+						operator: Operator::Modulo,
+						right: Box::new(expr_literal_int!("1", loc!(1, 33))),
+					}
 				)
 			),
 		];
@@ -1652,37 +1221,47 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::BitAnd,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 1))),
+						operator: Operator::BitAnd,
+						right: Box::new(expr_literal_int!("1", loc!(1, 5))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::BitOr,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 8))),
+						operator: Operator::BitOr,
+						right: Box::new(expr_literal_int!("1", loc!(1, 12))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::BitXor,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 15))),
+						operator: Operator::BitXor,
+						right: Box::new(expr_literal_int!("1", loc!(1, 19))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::BitLeftShift,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 22))),
+						operator: Operator::BitLeftShift,
+						right: Box::new(expr_literal_int!("1", loc!(1, 27))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::BitRightShift,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 30))),
+						operator: Operator::BitRightShift,
+						right: Box::new(expr_literal_int!("1", loc!(1, 35))),
+					}
 				)
 			),
 		];
@@ -1705,39 +1284,51 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::Equal,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 1))),
+						operator: Operator::Equal,
+						right: Box::new(expr_literal_int!("1", loc!(1, 6))),
+					}
 				)),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::NotEqual,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 9))),
+						operator: Operator::NotEqual,
+						right: Box::new(expr_literal_int!("1", loc!(1, 14))),
+					}
 				)),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::LessThan,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 17))),
+						operator: Operator::LessThan,
+						right: Box::new(expr_literal_int!("1", loc!(1, 21))),
+					}
 				)),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::LessThanOrEqual,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 24))),
+						operator: Operator::LessThanOrEqual,
+						right: Box::new(expr_literal_int!("1", loc!(1, 29))),
+					}
 				)),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::GreaterThan,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 32))),
+						operator: Operator::GreaterThan,
+						right: Box::new(expr_literal_int!("1", loc!(1, 36))),
+					}
 				)),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::GreaterThanOrEqual,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 39))),
+						operator: Operator::GreaterThanOrEqual,
+						right: Box::new(expr_literal_int!("1", loc!(1, 44))),
+					}
 				)
 			),
 		];
@@ -1760,16 +1351,20 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_true!()),
-					Operator::And,
-					Box::new(expr_literal_true!()),
+					Infix {
+						left: Box::new(expr_literal_true!(loc!(1, 1))),
+						operator: Operator::And,
+						right: Box::new(expr_literal_true!(loc!(1, 10))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_true!()),
-					Operator::Or,
-					Box::new(expr_literal_true!()),
+					Infix {
+						left: Box::new(expr_literal_true!(loc!(1, 16))),
+						operator: Operator::Or,
+						right: Box::new(expr_literal_true!(loc!(1, 24))),
+					}
 				)
 			),
 		];
@@ -1792,44 +1387,56 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::Assign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 1)))),
+						operator: Operator::Assign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 5))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::PlusAssign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 8)))),
+						operator: Operator::PlusAssign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 13))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::MinusAssign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 16)))),
+						operator: Operator::MinusAssign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 21))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::MultiplyAssign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 24)))),
+						operator: Operator::MultiplyAssign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 29))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::DivideAssign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 32)))),
+						operator: Operator::DivideAssign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 37))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::ModuloAssign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 40)))),
+						operator: Operator::ModuloAssign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 45))),
+					}
 				)
 			),
 		];
@@ -1852,37 +1459,47 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::BitAndAssign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 1)))),
+						operator: Operator::BitAndAssign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 6))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::BitOrAssign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 9)))),
+						operator: Operator::BitOrAssign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 14))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::BitXorAssign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 17)))),
+						operator: Operator::BitXorAssign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 22))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::BitLeftShiftAssign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 25)))),
+						operator: Operator::BitLeftShiftAssign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 31))),
+					}
 				)
 			),
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Identifier(ident!("x"))),
-					Operator::BitRightShiftAssign,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Identifier(ident!("x", loc!(1, 34)))),
+						operator: Operator::BitRightShiftAssign,
+						right: Box::new(expr_literal_int!("1", loc!(1, 40))),
+					}
 				)
 			),
 		];
@@ -1905,13 +1522,15 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(expr_literal_int!("1")),
-					Operator::Plus,
-					Box::new(Expression::Infix(
-						Box::new(expr_literal_int!("1")),
-						Operator::Multiply,
-						Box::new(expr_literal_int!("1")),
-					))
+					Infix {
+						left: Box::new(expr_literal_int!("1", loc!(1, 1))),
+						operator: Operator::Plus,
+						right: Box::new(Expression::Infix(Infix {
+							left: Box::new(expr_literal_int!("1", loc!(1, 5))),
+							operator: Operator::Multiply,
+							right: Box::new(expr_literal_int!("1", loc!(1, 9))),
+						})),
+					}
 				)
 			),
 		];
@@ -1934,13 +1553,15 @@ mod test {
 		let expected = vec![
 			Statement::Expression(
 				Expression::Infix(
-					Box::new(Expression::Infix(
-						Box::new(expr_literal_int!("1")),
-						Operator::Plus,
-						Box::new(expr_literal_int!("1")),
-					)),
-					Operator::Multiply,
-					Box::new(expr_literal_int!("1")),
+					Infix {
+						left: Box::new(Expression::Infix(Infix {
+							left: Box::new(expr_literal_int!("1", loc!(1, 2))),
+							operator: Operator::Plus,
+							right: Box::new(expr_literal_int!("1", loc!(1, 6))),
+						})),
+						operator: Operator::Multiply,
+						right: Box::new(expr_literal_int!("1", loc!(1, 11))),
+					}
 				)
 			),
 		];
@@ -1962,11 +1583,12 @@ mod test {
 		let mut parser = Parser::new("let x: i32 = 1;");
 		let expected = vec![
 			Statement::Let(
-				Let {
-					identifier: ident!("x"),
-					type_hint: Type::Int32,
-					value: expr_literal_int!("1"),
-				}
+				Let::new(
+					ident!("x", loc!(1, 5)),
+					TypeHint::Int32,
+					expr_literal_int!("1", loc!(1, 14)),
+					loc!(1, 1),
+				)
 			)
 		];
 
@@ -1987,7 +1609,7 @@ mod test {
 		let mut parser = Parser::new("return 1;");
 		let expected = vec![
 			Statement::Return(
-				expr_literal_int!("1"),
+				expr_literal_int!("1", loc!(1, 8)),
 			)
 		];
 
@@ -2008,13 +1630,17 @@ mod test {
 		let mut parser = Parser::new("loop { 1; }");
 		let expected = vec![
 			Statement::Loop(
-				Block {
-					statements: vec![
-						Statement::Expression(
-							expr_literal_int!("1")
-						),
-					],
-					id: 0,
+				Loop {
+					body: Block::new_with_statements(
+						vec![
+							Statement::Expression(
+								expr_literal_int!("1", loc!(1, 8))
+							),
+						],
+						0,
+						loc!(1, 6),
+					),
+					location: loc!(1, 1),
 				}
 			)
 		];
@@ -2036,9 +1662,12 @@ mod test {
 		let mut parser = Parser::new("loop {}");
 		let expected = vec![
 			Statement::Loop(
-				Block {
-					statements: vec![],
-					id: 0,
+				Loop {
+					body: Block::new(
+						0,
+						loc!(1, 6),
+					),
+					location: loc!(1, 1),
 				}
 			)
 		];
@@ -2059,7 +1688,10 @@ mod test {
 	fn test_continue_statement() {
 		let mut parser = Parser::new("continue;");
 		let expected = vec![
-			Statement::Continue(LoopRef::new()),
+			Statement::Continue(LoopControl {
+				loop_id: 0,
+				location: loc!(1, 1),
+			}),
 		];
 
 		for expected in expected.iter() {
@@ -2078,7 +1710,10 @@ mod test {
 	fn test_break_statement() {
 		let mut parser = Parser::new("break;");
 		let expected = vec![
-			Statement::Break(LoopRef::new()),
+			Statement::Break(LoopControl {
+				loop_id: 0,
+				location: loc!(1, 1),
+			}),
 		];
 
 		for expected in expected.iter() {
@@ -2099,13 +1734,13 @@ mod test {
 		let expected = vec![
 			Statement::If(
 				If {
-					condition: expr_literal_int!("1"),
-					consequence: Block {
-						statements: vec![],
-						id: 0,
-					},
-					other: vec![],
-					alternative: None,
+					branches: vec![
+						Branch {
+							condition: expr_literal_int!("1", loc!(1, 4)),
+							consequence: Block::new(0, loc!(1, 6)),
+						},
+					],
+					location: loc!(1, 1),
 				}
 			),
 		];
@@ -2128,16 +1763,17 @@ mod test {
 		let expected = vec![
 			Statement::If(
 				If {
-					condition: expr_literal_int!("1"),
-					consequence: Block {
-						statements: vec![],
-						id: 0,
-					},
-					other: vec![],
-					alternative: Some(Block {
-						statements: vec![],
-						id: 1,
-					})
+					branches: vec![
+						Branch {
+							condition: expr_literal_int!("1", loc!(1, 4)),
+							consequence: Block::new(0, loc!(1, 6)),
+						},
+						Branch {
+							condition: expr_literal_true!(loc!(0, 0)),
+							consequence: Block::new(1, loc!(1, 14)),
+						},
+					],
+					location: loc!(1, 1),
 				}
 			),
 		];
@@ -2160,21 +1796,17 @@ mod test {
 		let expected = vec![
 			Statement::If(
 				If {
-					condition: expr_literal_int!("1"),
-					consequence: Block {
-						statements: vec![],
-						id: 0,
-					},
-					other: vec![
-						(
-							expr_literal_int!("1"),
-							Block {
-								statements: vec![],
-								id: 1,
-							},
-						),
+					branches: vec![
+						Branch {
+							condition: expr_literal_int!("1", loc!(1, 4)),
+							consequence: Block::new(0, loc!(1, 6)),
+						},
+						Branch {
+							condition: expr_literal_int!("1", loc!(1, 14)),
+							consequence: Block::new(1, loc!(1, 16)),
+						},
 					],
-					alternative: None
+					location: loc!(1, 1),
 				}
 			),
 		];
@@ -2197,24 +1829,21 @@ mod test {
 		let expected = vec![
 			Statement::If(
 				If {
-					condition: expr_literal_int!("1"),
-					consequence: Block {
-						statements: vec![],
-						id: 0,
-					},
-					other: vec![
-						(
-							expr_literal_int!("1"),
-							Block {
-								statements: vec![],
-								id: 1,
-							},
-						),
+					branches: vec![
+						Branch {
+							condition: expr_literal_int!("1", loc!(1, 4)),
+							consequence: Block::new(0, loc!(1, 6)),
+						},
+						Branch {
+							condition: expr_literal_int!("1", loc!(1, 14)),
+							consequence: Block::new(1, loc!(1, 16)),
+						},
+						Branch {
+							condition: expr_literal_true!(loc!(0, 0)),
+							consequence: Block::new(2, loc!(1, 24)),
+						},
 					],
-					alternative: Some(Block {
-						statements: vec![],
-						id: 2,
-					})
+					location: loc!(1, 1),
 				}
 			),
 		];
@@ -2237,38 +1866,44 @@ mod test {
 		let expected = vec![
 			Statement::If(
 				If {
-					condition: expr_literal_int!("1"),
-					consequence: Block {
-						statements: vec![],
-						id: 0,
-					},
-					other: vec![
-						(
-							expr_literal_int!("1"),
-							Block {
-								statements: vec![],
-								id: 1,
-							},
-						),
-						(
-							expr_literal_int!("1"),
-							Block {
-								statements: vec![],
-								id: 2,
-							},
-						),
-						(
-							expr_literal_int!("1"),
-							Block {
-								statements: vec![],
-								id: 3,
-							},
-						),
+					branches: vec![
+						Branch {
+							condition: expr_literal_int!("1", loc!(1, 4)),
+							consequence: Block::new(
+								0,
+								loc!(1, 6),
+							),
+						},
+						Branch {
+							condition: expr_literal_int!("1", loc!(1, 14)),
+							consequence: Block::new(
+								1,
+								loc!(1, 16),
+							),
+						},
+						Branch {
+							condition: expr_literal_int!("1", loc!(1, 24)),
+							consequence: Block::new(
+								2,
+								loc!(1, 26),
+							),
+						},
+						Branch {
+							condition: expr_literal_int!("1", loc!(1, 34)),
+							consequence: Block::new(
+								3,
+								loc!(1, 36),
+							),
+						},
+						Branch {
+							condition: expr_literal_true!(loc!(0, 0)),
+							consequence: Block::new(
+								4,
+								loc!(1, 44),
+							),
+						},
 					],
-					alternative: Some(Block {
-						statements: vec![],
-						id: 4,
-					})
+					location: loc!(1, 1),
 				}
 			),
 		];
@@ -2289,29 +1924,38 @@ mod test {
 	fn test_parse_block() {
 		let mut parser = Parser::new("{ let a: i32 = 1; loop { break; } return 5; }");
 		let expected = vec![
-			Block {
-				statements: vec![
+			Block::new_with_statements(
+				vec![
 					Statement::Let(
-						Let {
-							identifier: ident!("a"),
-							type_hint: Type::Int32,
-							value: expr_literal_int!("1")
-						}
+						Let::new(
+							ident!("a", loc!(1, 7)),
+							TypeHint::Int32,
+							expr_literal_int!("1", loc!(1, 16)),
+							loc!(1, 3),
+						)
 					),
 					Statement::Loop(
-						Block {
-							statements: vec![
-								Statement::Break(LoopRef::new()),
-							],
-							id: 1,
-						}
+						Loop::new(
+							Block::new_with_statements(
+								vec![
+									Statement::Break(LoopControl {
+										loop_id: 0,
+										location: loc!(1, 26),
+									}),
+								],
+								1,
+								loc!(1, 24),
+							),
+							loc!(1, 19),
+						),
 					),
 					Statement::Return(
-						expr_literal_int!("5")
+						expr_literal_int!("5", loc!(1, 42))
 					),
 				],
-				id: 0,
-			}
+				0,
+				loc!(1, 1),
+			)
 		];
 
 		for expected in expected.iter() {
@@ -2326,5 +1970,3 @@ mod test {
 		}
 	}
 }
-*/
-

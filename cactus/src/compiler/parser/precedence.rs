@@ -91,7 +91,7 @@ impl Precedence {
 			| TokenType::Dot => Ok(Precedence::Call),
 
 			_ => {
-				Err(syntax_error(ErrorCode::E0002,
+				Err(syntax_error(ErrorCode::E0000,
 					token.location,
 					format!("Unable to convert TokenType to Precedence: {:?}",
 						token.token_type)))
@@ -214,7 +214,6 @@ mod test {
 			(token!(TokenType::Break), false),
 			(token!(TokenType::TypeBool), false),
 			(token!(TokenType::TypeInt32), false),
-			(token!(TokenType::TypeUint32), false),
 			(token!(TokenType::TypeFloat), false),
 		];
 

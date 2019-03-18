@@ -12,3 +12,5 @@ pub mod compiler;
 #[macro_use]
 mod error;
 mod location;
+
+pub use compiler::Compiler;

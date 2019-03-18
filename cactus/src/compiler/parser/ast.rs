@@ -20,7 +20,7 @@ pub trait TAstNode {
 /// This acts as the root node of the tree.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ast {
-	modules: Vec<Module>,
+	pub modules: Vec<Module>,
 }
 
 impl Ast {
@@ -48,7 +48,7 @@ impl TAstNode for Ast {
 /// A module represents the AST of a single file.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Module {
-	definitions: Vec<Definition>,
+	pub definitions: Vec<Definition>,
 }
 
 impl Module {
@@ -94,16 +94,16 @@ impl TAstNode for Definition {
 /// using a call expression.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
-	identifier: Identifier,
-	arguments: Vec<Argument>,
-	return_type: Option<TypeHint>,
-	body: Block,
+	pub identifier: Identifier,
+	pub arguments: Vec<Argument>,
+	pub return_type: TypeHint,
+	pub body: Block,
 	location: Location,
 }
 
 impl Function {
 	/// Create a new instance of `Function`.
-	pub fn new(identifier: Identifier, arguments: Vec<Argument>, return_type: Option<TypeHint>, body: Block, location: Location) -> Function {
+	pub fn new(identifier: Identifier, arguments: Vec<Argument>, return_type: TypeHint, body: Block, location: Location) -> Function {
 		Function {
 			identifier: identifier,
 			arguments: arguments,
@@ -111,6 +111,13 @@ impl Function {
 			body: body,
 			location: location,
 		}
+	}
+
+	///
+	///
+	///
+	pub fn get_name(&self) -> String {
+		self.identifier.name.clone()
 	}
 }
 
@@ -167,6 +174,13 @@ impl Argument {
 			type_hint: type_hint,
 		}
 	}
+
+	///
+	///
+	///
+	pub fn get_type_hint(&self) -> TypeHint {
+		self.type_hint
+	}
 }
 
 impl TAstNode for Argument {
@@ -184,6 +198,7 @@ pub enum TypeHint {
 	Int32,
 	Float,
 	Bool,
+	None,
 }
 
 impl TypeHint {
@@ -205,6 +220,18 @@ impl TypeHint {
 	}
 }
 
+impl fmt::Display for TypeHint {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			// prefix operators
+			TypeHint::Int32 => write!(f, "i32"),
+			TypeHint::Float => write!(f, "f32"),
+			TypeHint::Bool  => write!(f, "bool"),
+			TypeHint::None  => write!(f, "<none>"),
+		}
+	}
+}
+
 /// A representation of a block in the AST.
 ///
 /// A block is denoted by the opening and closing of braces, e.g. `{ ... }`, and is a collection of
@@ -213,8 +240,8 @@ impl TypeHint {
 /// child blocks.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
-	statements: Vec<Statement>,
-	id: usize,
+	pub statements: Vec<Statement>,
+	pub id: usize,
 	location: Location,
 }
 
@@ -223,6 +250,18 @@ impl Block {
 	pub fn new(id: usize, location: Location) -> Block {
 		Block {
 			statements: Vec::new(),
+			id: id,
+			location: location,
+		}
+	}
+
+	/// Create a new instance of `Block` with predefined statements
+	///
+	/// This is to support testing, so the compiler will complain about it for normal usage.
+	#[allow(dead_code)]
+	pub fn new_with_statements(statements: Vec<Statement>, id: usize, location: Location) -> Block {
+		Block {
+			statements: statements,
 			id: id,
 			location: location,
 		}
@@ -276,8 +315,8 @@ impl TAstNode for Statement {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Let {
 	identifier: Identifier,
-	type_hint: TypeHint,
-	value: Expression,
+	pub type_hint: TypeHint,
+	pub value: Expression,
 	location: Location,
 }
 
@@ -305,8 +344,8 @@ impl TAstNode for Let {
 /// pre-specified condition is reached.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Loop {
-	body: Block,
-	location: Location,
+	pub body: Block,
+	pub location: Location,
 }
 
 impl Loop {
@@ -316,6 +355,13 @@ impl Loop {
 			body: body,
 			location: location,
 		}
+	}
+
+	///
+	///
+	///
+	pub fn get_id(&self) -> usize {
+		self.body.id
 	}
 }
 
@@ -332,8 +378,8 @@ impl TAstNode for Loop {
 /// conditions will be evaluated.
 #[derive(Clone, Debug, PartialEq)]
 pub struct If {
-	branches: Vec<Branch>,
-	location: Location,
+	pub branches: Vec<Branch>,
+	pub location: Location,
 }
 
 impl If {
@@ -359,8 +405,8 @@ impl TAstNode for If {
 /// `if-else` statement is found, the final branch's condition will simply be `true`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Branch {
-	condition: Expression,
-	consequence: Block,
+	pub condition: Expression,
+	pub consequence: Block,
 }
 
 impl Branch {
@@ -384,8 +430,8 @@ impl TAstNode for Branch {
 ///
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LoopControl {
-	loop_id: usize,
-	location: Location,
+	pub loop_id: usize,
+	pub location: Location,
 }
 
 impl LoopControl {
@@ -428,6 +474,15 @@ pub enum Expression {
 	Call(Call),
 }
 
+impl Expression {
+	pub fn is_assignment(&self) -> bool {
+		match self {
+			Expression::Infix(infix) => infix.is_assignment(),
+			_ => false,
+		}
+	}
+}
+
 impl TAstNode for Expression {
 	fn get_location(&self) -> Location {
 		match self {
@@ -448,14 +503,14 @@ impl TAstNode for Expression {
 /// - Boolean
 #[derive(Clone, Debug, PartialEq)]
 pub struct Literal {
-	type_hint: TypeHint,
-	value: LiteralType,
-	location: Location,
+	pub type_hint: TypeHint,
+	pub value: LiteralValue,
+	pub location: Location,
 }
 
 impl Literal {
 	/// Create a new instance of `Literal`.
-	pub fn new(type_hint: TypeHint, value: LiteralType, location: Location) -> Literal {
+	pub fn new(type_hint: TypeHint, value: LiteralValue, location: Location) -> Literal {
 		Literal {
 			type_hint: type_hint,
 			value: value,
@@ -467,22 +522,22 @@ impl Literal {
 		match token.token_type {
 			TokenType::Integer => {
 				Ok(Literal::new(TypeHint::Int32,
-					LiteralType::Int32(token.value.unwrap()),
+					LiteralValue::Int32(token.value.unwrap()),
 					token.location))
 			},
 			TokenType::Float => {
 				Ok(Literal::new(TypeHint::Float,
-					LiteralType::Float(token.value.unwrap()),
+					LiteralValue::Float(token.value.unwrap()),
 					token.location))
 			},
 			TokenType::True => {
 				Ok(Literal::new(TypeHint::Bool,
-					LiteralType::True,
+					LiteralValue::True,
 					token.location))
 			},
 			TokenType::False => {
 				Ok(Literal::new(TypeHint::Bool,
-					LiteralType::False,
+					LiteralValue::False,
 					token.location))
 			},
 			_ => {
@@ -506,7 +561,7 @@ impl TAstNode for Literal {
 ///
 ///
 #[derive(Clone, Debug, PartialEq)]
-pub enum LiteralType {
+pub enum LiteralValue {
 	Int32(String),
 	Float(String),
 	True,
@@ -518,9 +573,9 @@ pub enum LiteralType {
 /// Infix expressions consist of two operands delimited by an operator, e.g. `1 + 1`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Infix {
-	left: Box<Expression>,
-	operator: Operator,
-	right: Box<Expression>,
+	pub left: Box<Expression>,
+	pub operator: Operator,
+	pub right: Box<Expression>,
 }
 
 impl Infix {
@@ -588,8 +643,8 @@ impl TAstNode for Infix {
 /// Prefix expressions contain a single operator followed by an operand, e.g. `not true`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Prefix {
-	operator: Operator,
-	right: Box<Expression>,
+	pub operator: Operator,
+	pub right: Box<Expression>,
 	location: Location,
 }
 
@@ -618,7 +673,7 @@ impl TAstNode for Prefix {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Call {
 	identifier: Identifier,
-	arguments: Vec<Expression>,
+	pub arguments: Vec<Expression>,
 }
 
 impl Call {
@@ -628,6 +683,13 @@ impl Call {
 			identifier: identifier,
 			arguments: arguments,
 		}
+	}
+
+	///
+	///
+	///
+	pub fn get_name(&self) -> String {
+		self.identifier.name.clone()
 	}
 }
 

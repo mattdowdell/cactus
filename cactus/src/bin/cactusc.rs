@@ -9,6 +9,7 @@ use std::fs::File;
 use std::io::Read;
 
 use clap::{App, Arg};
+use cactus::Compiler;
 
 
 fn main() {
@@ -42,15 +43,10 @@ fn main() {
 
 	println!("{}", contents);
 
-	/*
 	let compiler = Compiler::new();
 
 	match compiler.compile(&contents) {
-		Ok(instructions) => {
-			for instr in instructions.iter() {
-				println!("{}", instr);
-			}
-		},
+		Ok(_) => {},
 		Err(errors) => {
 			for error in errors.iter() {
 				eprintln!("{}", error);
@@ -59,5 +55,4 @@ fn main() {
 			std::process::exit(1);
 		}
 	}
-	*/
 }

@@ -86,7 +86,6 @@ pub enum TokenType {
 	// primitive types
 	TypeBool,
 	TypeInt32,
-	TypeUint32,
 	TypeFloat,
 }
 
@@ -177,7 +176,6 @@ impl fmt::Display for TokenType {
 			// primitive types
 			TokenType::TypeBool   => write!(f, "bool"),
 			TokenType::TypeInt32  => write!(f, "i32"),
-			TokenType::TypeUint32 => write!(f, "u32"),
 			TokenType::TypeFloat  => write!(f, "float"),
 		}
 	}

@@ -525,12 +525,11 @@ mod test {
 	// Test primitive types are correctly matched.
 	#[test]
 	fn test_primitive_types() {
-		let lexer = Lexer::new("bool i32 u32 f32");
+		let lexer = Lexer::new("bool i32 f32");
 		let expected = vec![
 			token!(TokenType::TypeBool, location!(1)),
 			token!(TokenType::TypeInt32, location!(6)),
-			token!(TokenType::TypeUint32, location!(10)),
-			token!(TokenType::TypeFloat, location!(14)),
+			token!(TokenType::TypeFloat, location!(10)),
 		];
 
 		for (i, token) in lexer.enumerate() {

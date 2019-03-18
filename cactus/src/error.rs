@@ -21,86 +21,32 @@ pub fn syntax_error(error_code: ErrorCode, location: Location, message: String) 
 ///
 ///
 ///
+pub fn type_error(error_code: ErrorCode, location: Location, message: String) -> CompilationError {
+	CompilationError::new(error_code,
+		ErrorType::TypeError,
+		location,
+		message)
+}
+
+///
+///
+///
+pub fn lookup_error(error_code: ErrorCode, location: Location, message: String) -> CompilationError {
+	CompilationError::new(error_code,
+		ErrorType::LookupError,
+		location,
+		message)
+}
+
+///
+///
+///
 pub fn internal_error(error_code: ErrorCode, location: Location, message: String) -> CompilationError {
 	CompilationError::new(error_code,
 		ErrorType::InternalError,
 		location,
 		message)
 }
-
-/*
-///
-///
-///
-macro_rules! type_error {
-	($code:path, $location:expr, $message:tt) => (
-		CompilationError::new($code,
-			ErrorType::TypeError,
-			$location,
-			$message.to_string())
-	);
-	($code:path, $location:expr, $message:tt, $($arg:expr),+) => (
-		CompilationError::new($code,
-			ErrorType::TypeError,
-			$location,
-			format!($message, $($arg),+))
-	);
-}
-
-///
-///
-///
-macro_rules! lookup_error {
-	($code:path, $location:expr, $message:tt) => (
-		CompilationError::new($code,
-			ErrorType::LookupError,
-			$location,
-			$message.to_string())
-	);
-	($code:path, $location:expr, $message:tt, $($arg:expr),+) => (
-		CompilationError::new($code,
-			ErrorType::LookupError,
-			$location,
-			format!($message, $($arg),+))
-	);
-}
-
-///
-///
-///
-macro_rules! not_implemented_error {
-	($code:path, $location:expr, $message:tt) => (
-		CompilationError::new($code,
-			ErrorType::NotImplementedError,
-			$location,
-			$message.to_string())
-	);
-	($code:path, $location:expr, $message:tt, $($arg:expr),+) => (
-		CompilationError::new($code,
-			ErrorType::NotImplementedError,
-			$location,
-			format!($message, $($arg),+))
-	);
-}
-
-///
-///
-///
-macro_rules! internal_error {
-	($code:path, $location:expr, $message:tt) => (
-		CompilationError::new($code,
-			ErrorType::InternalError,
-			$location,
-			$message.to_string())
-	);
-	($code:path, $location:expr, $message:tt, $($arg:expr),+) => (
-		CompilationError::new($code,
-			ErrorType::InternalError,
-			$location,
-			format!($message, $($arg),+))
-	);
-}
-*/
 
 ///
 ///
@@ -112,36 +58,23 @@ pub enum ErrorCode {
 	E0001, // unexpected end of file
 	E0002, // unexpected token
 	E0003, // non-identifier starting call expression
-	E0004,
-	E0005,
-	E0006,
-	E0007,
+	E0004, // break outside of loop
+	E0005, // continue outside of loop
+	E0006, // assignment used in sub expression
 
-	/*
 	// type errors
-	E0200, // let statement value does not match type hint
-	E0201, // non-boolean expression in if condition expression
-	E0202, // invalid type for prefix operator
-	E0203, // mismatched types for lhs and rhs of infix operator
-	E0204, // invalid type for infix operator
-	E0205, // mismatched type for function argument
-	E0206, // incorrect number of arguments for function call
+	E0200,
+	E0201,
+	E0202, // not enough arguments in function call
+	E0203, // incorrect type arguments in function call
+	E0204, // non-boolean type for conditional
+	E0205, // mismatched operand types for infix expression
+	E0206, // incorrect type found on return statement
 
 	// lookup errors
-	E0400, // function already defined
-	E0401, // argument already defined
-	E0402, // local already defined
-	E0403, // symbol used before it was defined
+	E0400, // function not defined before usage
+	E0401, // redefined function
 
-	// import errors
-	// E0600,
-
-	// not implemented errors
-	E0800, // type checking for custom types
-	E0801, // imports
-	E0802, // elif in if statements
-	E0803, // analysing struct initialisation expressions
-	*/
 	// internal errors
 	E1000,
 	E1001,
@@ -160,8 +93,7 @@ pub enum ErrorType {
 	SyntaxError,
 	TypeError,
 	LookupError,
-	ImportError,
-	NotImplementedError,
+	//NotImplementedError,
 	InternalError,
 }
 
@@ -171,8 +103,8 @@ impl fmt::Display for ErrorType {
 			ErrorType::SyntaxError         => write!(f, "Syntax Error"),
 			ErrorType::TypeError           => write!(f, "Type Error"),
 			ErrorType::LookupError         => write!(f, "Lookup Error"),
-			ErrorType::ImportError         => write!(f, "Import Error"),
-			ErrorType::NotImplementedError => write!(f, "Not Implemented Error"),
+			//ErrorType::ImportError         => write!(f, "Import Error"),
+			//ErrorType::NotImplementedError => write!(f, "Not Implemented Error"),
 			ErrorType::InternalError       => write!(f, "Internal Error"),
 		}
 	}

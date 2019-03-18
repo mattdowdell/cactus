@@ -73,7 +73,6 @@ impl Token {
 			// primitive types
 			"bool" => TokenType::TypeBool,
 			"i32"  => TokenType::TypeInt32,
-			"u32"  => TokenType::TypeUint32,
 			"f32"  => TokenType::TypeFloat,
 
 			// identifier (default)
@@ -157,7 +156,6 @@ mod test {
 			("loop", token!(TokenType::Loop)),
 			("bool", token!(TokenType::TypeBool)),
 			("i32", token!(TokenType::TypeInt32)),
-			("u32", token!(TokenType::TypeUint32)),
 			("f32", token!(TokenType::TypeFloat)),
 		];
 
