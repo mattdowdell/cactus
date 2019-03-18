@@ -200,7 +200,7 @@ impl Analyser {
 						Err(_) => {},
 					}
 
-					let index = self.symbol_table.new_sub_table(false);
+					let index = self.symbol_table.new_sub_table(true);
 					self.symbol_path.push(index);
 
 					self.analyse_block(&mut branch.consequence, loop_id);
@@ -209,7 +209,7 @@ impl Analyser {
 				}
 			}
 			Statement::Loop(ref mut loop_stmt) => {
-				let index = self.symbol_table.new_sub_table(false);
+				let index = self.symbol_table.new_sub_table(true);
 				self.symbol_path.push(index);
 
 				let loop_id = loop_stmt.get_id();
@@ -542,4 +542,57 @@ mod test {
 		let res = analyse("fn x() { -a = true; }");
 		assert!(res.is_err());
 	}
+
+	#[test]
+	fn test_defined_argument() {
+		let res = analyse("fn x(a: i32) { a; }");
+		assert!(res.is_ok());
+	}
+
+	#[test]
+        fn test_defined_local() {
+                let res = analyse("fn x() { let a: i32 = 5; a; }");
+                assert!(res.is_ok());
+        }
+
+	#[test]
+        fn test_undefined_symbol() {
+                let res = analyse("fn x() { a; }");
+                assert!(res.is_err());
+        }
+
+	#[test]
+        fn test_defined_argument_access_in_block() {
+                let res = analyse("fn x(a: i32) { if true { a; } }");
+                assert!(res.is_ok());
+        }
+
+	#[test]
+        fn test_defined_local_access_in_block() {
+                let res = analyse("fn x() { let a: i32 = 5; if true { a; } }");
+                assert!(res.is_ok());
+        }
+
+	#[test]
+        fn test_defined_local_in_block() {
+                let res = analyse("fn x() { if true { let a: i32 = 5; a; } }");
+	        //assert!(res.is_ok());
+
+		match res {
+			Ok(_) => {},
+			Err(errors) => {
+				for error in errors.iter() {
+					println!("{}", error);
+				}
+
+				panic!("Unexpected failure");
+			},
+		}
+        }
+
+	#[test]
+        fn test_defined_local_in_block_access_outside_block() {
+                let res = analyse("fn x() { if true { let a: i32 = 5; } a; }");
+                assert!(res.is_err());
+        }
 }
