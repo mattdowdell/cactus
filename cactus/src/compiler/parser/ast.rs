@@ -156,6 +156,12 @@ impl Identifier {
 
 	///
 	///
+	pub fn get_name(&self) -> String {
+		self.name.clone()
+	}
+
+	///
+	///
 	pub fn set_symbol_type(&mut self, symbol_type: SymbolType) {
 		self.symbol_type = symbol_type;
 	}

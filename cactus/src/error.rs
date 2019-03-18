@@ -77,6 +77,7 @@ pub enum ErrorCode {
 	E0401, // redefined function
 	E0402, // redefined argument
 	E0403, // redefined local
+	E0404, // unudefined local/argument
 
 	// internal errors
 	E1000,

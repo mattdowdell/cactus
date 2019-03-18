@@ -6,7 +6,7 @@ use std::collections::VecDeque;
 
 use crate::error::{CompilationError, ErrorCode, lookup_error, internal_error};
 use crate::location::Location;
-use crate::compiler::parser::{Argument, TypeHint, Let, TAstNode};
+use crate::compiler::parser::{Argument, Identifier, TypeHint, Let, TAstNode};
 
 
 ///
@@ -133,6 +133,38 @@ impl SymbolTable {
 			}
 		}
 	}
+
+	///
+	///
+	///
+	pub fn lookup_symbol(&self, ident: &mut Identifier, path: VecDeque<usize>) -> Result<TypeHint, CompilationError> {
+		for (index, item) in self.items.iter().enumerate() {
+			match item {
+				SymbolItem::Symbol(symbol) => {
+					if symbol.name == ident.get_name() {
+						ident.set_symbol_type(symbol.symbol_type);
+						// TODO: set offset as well
+
+						return Ok(symbol.type_hint);
+					}
+				}
+				SymbolItem::Table(sub_table) => {
+					if path.len() > 0 && path[0] == index {
+						let mut sub_path = path.clone();
+						sub_path.pop_front();
+
+						return sub_table.lookup_symbol(ident, sub_path);
+					}
+				}
+			}
+		}
+
+		Err(lookup_error(ErrorCode::E0404,
+			ident.get_location(),
+			format!("Symbol {:?} was used before it was defined",
+				ident.get_name())))
+	}
+
 }
 
 ///
@@ -185,38 +217,6 @@ pub enum SymbolType {
 	///
 	///
 	///
-	pub fn lookup_symbol(&self, name: String, path: VecDeque<usize>, is_function: bool) -> Result<TypeHint, CompilationError> {
-		for (index, item) in self.items.iter().enumerate() {
-			match item {
-				SymbolItem::Symbol(symbol) => {
-					if symbol.name == name {
-						return Ok(symbol.type_hint);
-					}
-				}
-				SymbolItem::Table(sub_table) => {
-					// functions calls should never need to check sub-tables
-					// as we don't allow nested function definitions
-					if is_function {
-						continue;
-					}
-
-					if path.len() > 0 && path[0] == index {
-						let mut sub_path = path.clone();
-						sub_path.pop_front();
-
-						return sub_table.lookup_symbol(name.clone(), sub_path, false);
-					}
-				}
-			}
-		}
-
-		return Err(lookup_error!(
-			ErrorCode::E0403,
-			Location::end(),
-			"Symbol {:?} was used before it was defined",
-			name
-		));
-	}
 }
 */
 

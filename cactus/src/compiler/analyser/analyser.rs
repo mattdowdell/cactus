@@ -251,11 +251,18 @@ impl Analyser {
 			Expression::Literal(literal) => {
 				Ok(literal.type_hint)
 			},
-			Expression::Identifier(_ident) => {
-				// TODO: lookup in symbol table
-				// TODO: get type from symbol table too
-				// TODO: augment AST identifier so it know whether it's an argument or local and it's offset
-				unimplemented!()
+			Expression::Identifier(ref mut ident) => {
+				let path = VecDeque::from_iter(self.symbol_path.clone());
+
+				match self.symbol_table.lookup_symbol(ident, path) {
+					Ok(type_hint) => {
+						Ok(type_hint)
+					},
+					Err(error) => {
+						self.errors.push(error);
+						Err(())
+					},
+				}
 			},
 			Expression::Prefix(ref mut prefix) => {
 				if prefix.right.is_assignment() {
