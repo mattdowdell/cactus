@@ -212,18 +212,45 @@ pub enum SymbolType {
 }
 
 
-/*
-
-	///
-	///
-	///
-}
-*/
-
 #[cfg(test)]
 mod test {
-	/*
+	use crate::compiler::parser::{Expression, Literal, LiteralValue};
 	use super::*;
+
+	const LITERAL: Expression = Expression::Literal(
+		Literal {
+			type_hint: TypeHint::Int32,
+			value: LiteralValue::True,
+			location: Location {
+				line: 1,
+				column: 1,
+			}
+		}
+	);
+
+	macro_rules! loc {
+		($line:tt, $column:tt) => (
+			Location::new($line, $column)
+		)
+	}
+
+	macro_rules! ident {
+		($value:tt) => (
+			Identifier::new($value.to_string(), loc!(1, 1))
+		)
+	}
+
+	macro_rules! arg {
+		($value:tt) => (
+			Argument::new(ident!($value), TypeHint::Bool)
+		)
+	}
+
+	macro_rules! let_stmt {
+		($value:tt) => (
+			Let::new(ident!($value), TypeHint::Bool, LITERAL, loc!(1, 1))
+		)
+	}
 
 	//
 	#[test]
@@ -236,7 +263,7 @@ mod test {
 						SymbolItem::Symbol(Symbol {
 							name: "example".to_string(),
 							symbol_type: SymbolType::Argument,
-							type_hint: TypeHint::Int32,
+							type_hint: TypeHint::Bool,
 						})
 					],
 					argument_offset: 1,
@@ -248,11 +275,10 @@ mod test {
 		};
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.sub_table(false);
+		let sub_table_index = table.new_sub_table(false);
 		path.push_back(sub_table_index);
 
-		let name = "example".to_string();
-		let res = table.push_argument(name, path, TypeHint::Int32);
+		let res = table.push_argument(arg!("example"), path);
 
 		assert!(res.is_ok());
 		assert_eq!(table, expected);
@@ -264,13 +290,13 @@ mod test {
 		let mut table = SymbolTable::new(0);
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.sub_table(false);
+		let sub_table_index = table.new_sub_table(false);
 		path.push_back(sub_table_index);
 
-		let res = table.push_argument("example".to_string(), path.clone(), TypeHint::Int32);
+		let res = table.push_argument(arg!("example"), path.clone());
 		assert!(res.is_ok());
 
-		let res = table.push_argument("example".to_string(), path.clone(), TypeHint::Int32);
+		let res = table.push_argument(arg!("example"), path.clone());
 		assert!(res.is_err());
 	}
 
@@ -285,7 +311,7 @@ mod test {
 						SymbolItem::Symbol(Symbol {
 							name: "example".to_string(),
 							symbol_type: SymbolType::Local,
-							type_hint: TypeHint::Int32,
+							type_hint: TypeHint::Bool,
 						})
 					],
 					argument_offset: 0,
@@ -297,11 +323,10 @@ mod test {
 		};
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.sub_table(false);
+		let sub_table_index = table.new_sub_table(false);
 		path.push_back(sub_table_index);
 
-		let name = "example".to_string();
-		let res = table.push_local(name, path, TypeHint::Int32);
+		let res = table.push_local(let_stmt!("example"), path);
 
 		assert!(res.is_ok());
 		assert_eq!(table, expected);
@@ -313,17 +338,19 @@ mod test {
 		let mut table = SymbolTable::new(0);
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.sub_table(false);
+		let sub_table_index = table.new_sub_table(false);
 		path.push_back(sub_table_index);
 
-		let res = table.push_local("example".to_string(), path.clone(), TypeHint::Int32);
+		let res = table.push_local(let_stmt!("example"), path.clone());
 		assert!(res.is_ok());
 
-		let res = table.push_local("example".to_string(), path.clone(), TypeHint::Int32);
+		let res = table.push_local(let_stmt!("example"), path.clone());
 		assert!(res.is_err());
 	}
 
+	/*
 	#[test]
+	#[ignore]
 	fn test_lookup_symbol_function() {
 		let table = SymbolTable {
 			items: vec![
