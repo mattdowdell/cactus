@@ -70,10 +70,13 @@ pub enum ErrorCode {
 	E0204, // non-boolean type for conditional
 	E0205, // mismatched operand types for infix expression
 	E0206, // incorrect type found on return statement
+	E0207, // incorrect type fund for let statement value
 
 	// lookup errors
 	E0400, // function not defined before usage
 	E0401, // redefined function
+	E0402, // redefined argument
+	E0403, // redefined local
 
 	// internal errors
 	E1000,
@@ -82,6 +85,7 @@ pub enum ErrorCode {
 	E1003,
 	E1004,
 	E1005,
+	E1006,
 
 }
 

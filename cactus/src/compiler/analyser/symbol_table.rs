@@ -2,7 +2,12 @@
 //!
 //!
 
-use crate::compiler::parser::{Function, TypeHint};
+use std::collections::VecDeque;
+
+use crate::error::{CompilationError, ErrorCode, lookup_error, internal_error};
+use crate::location::Location;
+use crate::compiler::parser::{Argument, TypeHint, Let, TAstNode};
+
 
 ///
 ///
@@ -25,6 +30,25 @@ impl SymbolTable {
 		}
 	}
 
+	//
+	//
+	//
+	fn contains(&self, name: String) -> bool {
+		for item in self.items.iter() {
+			match item {
+				SymbolItem::Symbol(symbol) => {
+					if symbol.name == name {
+						return true;
+					}
+				}
+				// no need to check sub-tables
+				SymbolItem::Table(_) => {},
+			};
+		}
+
+		false
+	}
+
 	///
 	///
 	///
@@ -37,6 +61,76 @@ impl SymbolTable {
 		self.items.push(item);
 
 		index
+	}
+
+	/// Add an argument to the symbol table.
+	///
+	///
+	pub fn push_argument(&mut self, argument: Argument, path: VecDeque<usize>) -> Result<usize, CompilationError> {
+		if path.len() > 0 {
+			let mut sub_path = path.clone();
+			let sub_index = sub_path.pop_front().unwrap();
+
+			match self.items[sub_index] {
+				SymbolItem::Table(ref mut table) => table.push_argument(argument, sub_path),
+				_ => {
+					Err(internal_error(ErrorCode::E1006,
+						Location::end(),
+						format!("Expected table at index: {:?}",
+							sub_index)))
+				},
+			}
+		} else {
+			if self.contains(argument.get_name()) {
+				Err(lookup_error(ErrorCode::E0402,
+					argument.get_location(),
+					format!("Argument {} already defined",
+						argument.get_name())))
+			} else {
+				let symbol = Symbol::new(argument.get_name(), SymbolType::Argument, argument.get_type_hint());
+				let item = SymbolItem::Symbol(symbol);
+
+				self.items.push(item);
+				self.argument_offset += 1; // TODO: test this
+
+				Ok(self.argument_offset - 1)
+			}
+		}
+	}
+
+	/// Add an argument to the symbol table.
+	///
+	///
+	pub fn push_local(&mut self, let_stmt: Let, path: VecDeque<usize>) -> Result<usize, CompilationError> {
+		if path.len() > 0 {
+			let mut sub_path = path.clone();
+			let sub_index = sub_path.pop_front().unwrap();
+
+			match self.items[sub_index] {
+				SymbolItem::Table(ref mut table) => table.push_local(let_stmt, sub_path),
+				_ => {
+					Err(internal_error(ErrorCode::E1006,
+						Location::end(),
+						format!("Expected table at index: {:?}",
+							sub_index)))
+				},
+			}
+		} else {
+			if self.contains(let_stmt.get_name()) {
+				Err(lookup_error(ErrorCode::E0403,
+					let_stmt.get_location(),
+					format!("Local {} already defined",
+						let_stmt.get_name())))
+			} else {
+				let symbol = Symbol::new(let_stmt.get_name(), SymbolType::Local, let_stmt.get_type_hint());
+				let item = SymbolItem::Symbol(symbol);
+
+				self.items.push(item);
+				self.local_offset += 1; // TODO: test this
+
+				Ok(self.local_offset - 1)
+			}
+		}
 	}
 }
 
@@ -61,6 +155,7 @@ impl Symbol {
 	}
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SymbolType {
 	Function,
 	Argument,
@@ -103,25 +198,6 @@ impl SymbolTable {
 		}
 	}
 
-	//
-	//
-	//
-	fn contains(&self, name: String) -> bool {
-		for item in self.items.iter() {
-			match item {
-				SymbolItem::Symbol(symbol) => {
-					if symbol.name == name {
-						return true;
-					}
-				}
-				// no need to check sub-tables
-				SymbolItem::Table(_) => {},
-			};
-		}
-
-		false
-	}
-
 	/// Add a new `SymbolTable` to the existing table and return the new table's index.
 	///
 	///
@@ -134,27 +210,6 @@ impl SymbolTable {
 
 		// return the index of the new table
 		self.items.len() - 1
-	}
-
-	/// Add a function to the `SymbolTable`.
-	///
-	///
-	pub fn push_function(&mut self, name: String, return_type: TypeHint) -> Result<(), CompilationError> {
-		if self.contains(name.clone()) {
-			Err(lookup_error!(
-				ErrorCode::E0400,
-				Location::end(),
-				"Function {:?} already defined",
-				name
-			))
-		} else {
-			let symbol = Symbol::new(name, SymbolType::Function, return_type);
-			let item = SymbolItem::Symbol(symbol);
-
-			self.items.push(item);
-
-			Ok(())
-		}
 	}
 
 	/// Add an argument to the `SymbolTable`.

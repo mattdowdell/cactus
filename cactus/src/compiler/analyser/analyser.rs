@@ -2,7 +2,8 @@
 //!
 //!
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::iter::FromIterator;
 
 use crate::error::{CompilationError, ErrorCode, type_error, lookup_error, syntax_error};
 use crate::compiler::parser::{Ast, Module, Definition, Function, Block, Statement, Expression, TypeHint, TAstNode};
@@ -90,7 +91,16 @@ impl Analyser {
 		let index = self.symbol_table.new_sub_table(false);
 		self.symbol_path.push(index);
 
-		// TODO: add arguments to symbol table
+		let path = VecDeque::from_iter(self.symbol_path.clone());
+
+		for argument in function.arguments.iter() {
+			match self.symbol_table.push_argument(argument.clone(), path.clone()) {
+				Ok(_) => {},
+				Err(error) => {
+					self.errors.push(error);
+				}
+			}
+		}
 
 		self.cur_ret_type = function.return_type;
 		self.analyse_block(&mut function.body, None);
@@ -124,15 +134,25 @@ impl Analyser {
 	fn analyse_statement(&mut self, statement: &mut Statement, loop_id: Option<usize>) {
 		match statement {
 			Statement::Let(let_stmt) => {
-				// TODO: push into symbol table
-
 				match self.analyse_expression(&mut let_stmt.value) {
 					Ok(type_hint) => {
 						if type_hint != let_stmt.type_hint {
-							// TODO: Error
+							self.errors.push(type_error(ErrorCode::E0207,
+								let_stmt.get_location(),
+								format!("Let statement value for {} does not match the given type hint",
+									let_stmt.get_name())))
 						}
 					},
 					Err(_) => {},
+				}
+
+				let path = VecDeque::from_iter(self.symbol_path.clone());
+
+				match self.symbol_table.push_local(let_stmt.clone(), path) {
+					Ok(_) => {},
+					Err(error) => {
+						self.errors.push(error);
+					}
 				}
 			},
 			Statement::Return(ref mut expr) => {
@@ -180,12 +200,22 @@ impl Analyser {
 						Err(_) => {},
 					}
 
+					let index = self.symbol_table.new_sub_table(false);
+					self.symbol_path.push(index);
+
 					self.analyse_block(&mut branch.consequence, loop_id);
+
+					self.symbol_path.pop();
 				}
 			}
 			Statement::Loop(ref mut loop_stmt) => {
+				let index = self.symbol_table.new_sub_table(false);
+				self.symbol_path.push(index);
+
 				let loop_id = loop_stmt.get_id();
 				self.analyse_block(&mut loop_stmt.body, Some(loop_id));
+
+				self.symbol_path.pop();
 			}
 			Statement::Break(ctrl) => {
 				if loop_id.is_none() {

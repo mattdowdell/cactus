@@ -8,6 +8,7 @@ use std::fmt;
 use crate::error::{CompilationError, ErrorCode, internal_error};
 use crate::location::Location;
 use crate::compiler::lexer::{Token, TokenType};
+use crate::compiler::analyser::SymbolType;
 
 /// Common methods for all AST nodes.
 pub trait TAstNode {
@@ -104,13 +105,17 @@ pub struct Function {
 impl Function {
 	/// Create a new instance of `Function`.
 	pub fn new(identifier: Identifier, arguments: Vec<Argument>, return_type: TypeHint, body: Block, location: Location) -> Function {
-		Function {
+		let mut ret = Function {
 			identifier: identifier,
 			arguments: arguments,
 			return_type: return_type,
 			body: body,
 			location: location,
-		}
+		};
+
+		ret.identifier.set_symbol_type(SymbolType::Function);
+
+		ret
 	}
 
 	///
@@ -136,6 +141,7 @@ impl TAstNode for Function {
 pub struct Identifier {
 	name: String,
 	location: Location,
+	symbol_type: SymbolType,
 }
 
 impl Identifier {
@@ -144,7 +150,20 @@ impl Identifier {
 		Identifier {
 			name: name,
 			location: location,
+			symbol_type: SymbolType::Unknown,
 		}
+	}
+
+	///
+	///
+	pub fn set_symbol_type(&mut self, symbol_type: SymbolType) {
+		self.symbol_type = symbol_type;
+	}
+
+	///
+	///
+	pub fn get_symbol_type(&mut self) -> SymbolType {
+		self.symbol_type
 	}
 }
 
@@ -169,10 +188,21 @@ pub struct Argument {
 impl Argument {
 	/// Create a new instance of `Argument`.
 	pub fn new(identifier: Identifier, type_hint: TypeHint) -> Argument {
-		Argument {
+		let mut ret = Argument {
 			identifier: identifier,
 			type_hint: type_hint,
-		}
+		};
+
+		ret.identifier.set_symbol_type(SymbolType::Argument);
+
+		ret
+	}
+
+	///
+	///
+	///
+	pub fn get_name(&self) -> String {
+		self.identifier.name.clone()
 	}
 
 	///
@@ -323,12 +353,30 @@ pub struct Let {
 impl Let {
 	/// Create a new instance of `Let`.
 	pub fn new(identifier: Identifier, type_hint: TypeHint, value: Expression, location: Location) -> Let {
-		Let {
+		let mut ret = Let {
 			identifier: identifier,
 			type_hint: type_hint,
 			value: value,
 			location: location,
-		}
+		};
+
+		ret.identifier.set_symbol_type(SymbolType::Local);
+
+		ret
+	}
+
+	///
+	///
+	///
+	pub fn get_name(&self) -> String {
+		self.identifier.name.clone()
+	}
+
+	///
+	///
+	///
+	pub fn get_type_hint(&self) -> TypeHint {
+		self.type_hint
 	}
 }
 
