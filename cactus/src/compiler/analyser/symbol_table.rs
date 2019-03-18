@@ -12,6 +12,7 @@ use crate::compiler::parser::{Argument, TypeHint, Let, TAstNode};
 ///
 ///
 ///
+#[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
 	items: Vec<SymbolItem>,
 	argument_offset: usize,
@@ -134,11 +135,19 @@ impl SymbolTable {
 	}
 }
 
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
 pub enum SymbolItem {
 	Table(SymbolTable),
 	Symbol(Symbol)
 }
 
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
 pub struct Symbol {
 	name: String,
 	symbol_type: SymbolType,
@@ -146,6 +155,9 @@ pub struct Symbol {
 }
 
 impl Symbol {
+	///
+	///
+	///
 	pub fn new(name: String, symbol_type: SymbolType, type_hint: TypeHint) -> Symbol {
 		Symbol {
 			name: name,
@@ -155,6 +167,9 @@ impl Symbol {
 	}
 }
 
+///
+///
+///
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SymbolType {
 	Function,
@@ -166,115 +181,6 @@ pub enum SymbolType {
 
 
 /*
-use std::collections::VecDeque;
-
-use crate::{
-	error::{
-		CompilationError,
-		ErrorCode,
-		ErrorType,
-	},
-	location::Location,
-	analyser::type_checker::TypeHint,
-};
-
-
-/// A table that holds all symbols in a Cactus program.
-#[derive(Clone, Debug, PartialEq)]
-pub struct SymbolTable {
-	pub items: Vec<SymbolItem>,
-
-}
-
-impl SymbolTable {
-	/// Initialise a new `SymbolTable`.
-	///
-	///
-	pub fn new(local_offset: usize) -> SymbolTable {
-		SymbolTable {
-			items: Vec::new(),
-			argument_offset: 0,
-			local_offset: local_offset,
-		}
-	}
-
-	/// Add a new `SymbolTable` to the existing table and return the new table's index.
-	///
-	///
-	pub fn sub_table(&mut self, inherit_offset: bool) -> usize {
-		let offset = if inherit_offset { self.local_offset } else { 0 };
-		let table = SymbolTable::new(offset);
-		let item = SymbolItem::Table(table);
-
-		self.items.push(item);
-
-		// return the index of the new table
-		self.items.len() - 1
-	}
-
-	/// Add an argument to the `SymbolTable`.
-	///
-	///
-	pub fn push_argument(&mut self, name: String, path: VecDeque<usize>, type_hint: TypeHint) -> Result<usize, CompilationError> {
-		if path.len() > 0 {
-			let mut sub_path = path.clone();
-			let sub_index = sub_path.pop_front().unwrap();
-
-			match self.items[sub_index] {
-				SymbolItem::Table(ref mut table) => table.push_argument(name, sub_path, type_hint),
-				_ => panic!("Internal error: Expected table at index: {:?}", sub_index),
-			}
-		} else {
-			if self.contains(name.clone()) {
-				Err(lookup_error!(
-					ErrorCode::E0401,
-					Location::end(),
-					"Argument {:?} already defined",
-					name
-				))
-			} else {
-				let symbol = Symbol::new(name, SymbolType::Argument, type_hint);
-				let item = SymbolItem::Symbol(symbol);
-
-				self.items.push(item);
-				self.argument_offset += 1; // TODO: test this
-
-				Ok(self.argument_offset - 1)
-			}
-		}
-	}
-
-	/// Add a local variable to the `SymbolTable`.
-	///
-	///
-	pub fn push_local(&mut self, name: String, path: VecDeque<usize>, type_hint: TypeHint) -> Result<usize, CompilationError> {
-		if path.len() > 0 {
-			let mut sub_path = path.clone();
-			let sub_index = sub_path.pop_front().unwrap();
-
-			match self.items[sub_index] {
-				SymbolItem::Table(ref mut table) => table.push_local(name, sub_path, type_hint),
-				_ => panic!("Internal error: Expected table at index: {:?}", sub_index),
-			}
-		} else {
-			if self.contains(name.clone()) {
-				Err(lookup_error!(
-					ErrorCode::E0401,
-					Location::end(),
-					"Local variable {:?} already defined",
-					name
-				))
-			} else {
-				let symbol = Symbol::new(name, SymbolType::Local, type_hint);
-				let item = SymbolItem::Symbol(symbol);
-
-				self.items.push(item);
-				self.local_offset += 1; // TODO: test this
-
-				Ok(self.local_offset - 1)
-			}
-		}
-	}
 
 	///
 	///
@@ -312,91 +218,12 @@ impl SymbolTable {
 		));
 	}
 }
-
-/// An item in the symbol table.
-///
-/// Items can either be a sub-table or a symbol.
-#[derive(Clone, Debug, PartialEq)]
-pub enum SymbolItem {
-	Symbol(Symbol),
-	Table(SymbolTable),
-}
-
-
-/// A single symbol in the symbol table.
-///
-///
-#[derive(Clone, Debug, PartialEq)]
-pub struct Symbol {
-	name: String,
-	symbol_type: SymbolType,
-	type_hint: TypeHint,
-}
-
-impl Symbol {
-	///
-	///
-	///
-	pub fn new(name: String, symbol_type: SymbolType, type_hint: TypeHint) -> Symbol {
-		Symbol {
-			name: name,
-			symbol_type: symbol_type,
-			type_hint: type_hint,
-		}
-	}
-}
-
-///
-///
-///
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum SymbolType {
-	Function,
-	Argument,
-	Local,
-
-}
-
-
+*/
 
 #[cfg(test)]
 mod test {
+	/*
 	use super::*;
-
-	//
-	#[test]
-	fn test_push_function() {
-		let mut table = SymbolTable::new(0);
-		let expected = SymbolTable {
-			items: vec![
-				SymbolItem::Symbol(Symbol {
-					name: "example".to_string(),
-					symbol_type: SymbolType::Function,
-					type_hint: TypeHint::Int32,
-				})
-			],
-			argument_offset: 0,
-			local_offset: 0,
-		};
-
-		let name = "example".to_string();
-		let res = table.push_function(name, TypeHint::Int32);
-
-		assert!(res.is_ok());
-		assert_eq!(table, expected);
-	}
-
-	//
-	#[test]
-	fn test_push_function_redefined() {
-		let mut table = SymbolTable::new(0);
-
-		let res = table.push_function("example".to_string(), TypeHint::Int32);
-		assert!(res.is_ok());
-
-		let res = table.push_function("example".to_string(), TypeHint::Int32);
-		assert!(res.is_err());
-	}
 
 	//
 	#[test]
@@ -496,7 +323,6 @@ mod test {
 		assert!(res.is_err());
 	}
 
-	//
 	#[test]
 	fn test_lookup_symbol_function() {
 		let table = SymbolTable {
@@ -538,5 +364,5 @@ mod test {
 		assert!(table.lookup_symbol("not_found".to_string(), path.clone(), true).is_err());
 		assert!(table.lookup_symbol("not_found".to_string(), path.clone(), false).is_err());
 	}
+	*/
 }
-*/
