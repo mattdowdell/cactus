@@ -7,7 +7,7 @@ pub mod compiler;
 
 // internal modules
 mod analyser;
-// mod bytecode_generator;
+mod bytecode_generator;
 mod lexer;
 mod parser;
 

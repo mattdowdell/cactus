@@ -46,7 +46,11 @@ fn main() {
 	let compiler = Compiler::new();
 
 	match compiler.compile(&contents) {
-		Ok(_) => {},
+		Ok(instructions) => {
+			for instr in instructions.iter() {
+				println!("{}", instr);
+			}
+		},
 		Err(errors) => {
 			for error in errors.iter() {
 				eprintln!("{}", error);

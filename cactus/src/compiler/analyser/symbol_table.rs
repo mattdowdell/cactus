@@ -103,7 +103,10 @@ impl SymbolTable {
 					format!("Argument {} already defined",
 						argument.get_name())))
 			} else {
-				let symbol = Symbol::new(argument.get_name(), SymbolType::Argument, argument.get_type_hint());
+				let symbol = Symbol::new(argument.get_name(),
+					SymbolType::Argument,
+					argument.get_type_hint(),
+					self.argument_offset);
 				let item = SymbolItem::Symbol(symbol);
 
 				self.items.push(item);
@@ -138,7 +141,10 @@ impl SymbolTable {
 					format!("Local {} already defined",
 						let_stmt.get_name())))
 			} else {
-				let symbol = Symbol::new(let_stmt.get_name(), SymbolType::Local, let_stmt.get_type_hint());
+				let symbol = Symbol::new(let_stmt.get_name(),
+					SymbolType::Local,
+					let_stmt.get_type_hint(),
+					self.local_offset);
 				let item = SymbolItem::Symbol(symbol);
 
 				self.items.push(item);
@@ -158,7 +164,7 @@ impl SymbolTable {
 				SymbolItem::Symbol(symbol) => {
 					if symbol.name == ident.get_name() {
 						ident.set_symbol_type(symbol.symbol_type);
-						// TODO: set offset as well
+						ident.set_offset(symbol.offset);
 
 						return Ok(symbol.type_hint);
 					}
@@ -199,17 +205,19 @@ pub struct Symbol {
 	name: String,
 	symbol_type: SymbolType,
 	type_hint: TypeHint,
+	offset: usize,
 }
 
 impl Symbol {
 	///
 	///
 	///
-	pub fn new(name: String, symbol_type: SymbolType, type_hint: TypeHint) -> Symbol {
+	pub fn new(name: String, symbol_type: SymbolType, type_hint: TypeHint, offset: usize) -> Symbol {
 		Symbol {
 			name: name,
 			symbol_type: symbol_type,
 			type_hint: type_hint,
+			offset: offset,
 		}
 	}
 }
@@ -279,6 +287,7 @@ mod test {
 							name: "example".to_string(),
 							symbol_type: SymbolType::Argument,
 							type_hint: TypeHint::Bool,
+							offset: 0,
 						})
 					],
 					argument_offset: 1,
@@ -333,6 +342,7 @@ mod test {
 							name: "example".to_string(),
 							symbol_type: SymbolType::Local,
 							type_hint: TypeHint::Bool,
+							offset: 0,
 						})
 					],
 					argument_offset: 0,

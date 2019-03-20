@@ -142,6 +142,7 @@ pub struct Identifier {
 	name: String,
 	location: Location,
 	symbol_type: SymbolType,
+	offset: usize,
 }
 
 impl Identifier {
@@ -151,6 +152,7 @@ impl Identifier {
 			name: name,
 			location: location,
 			symbol_type: SymbolType::Unknown,
+			offset: 0,
 		}
 	}
 
@@ -168,8 +170,20 @@ impl Identifier {
 
 	///
 	///
-	pub fn get_symbol_type(&mut self) -> SymbolType {
+	pub fn get_symbol_type(&self) -> SymbolType {
 		self.symbol_type
+	}
+
+	///
+	///
+	pub fn set_offset(&mut self, offset: usize) {
+		self.offset = offset
+	}
+
+	///
+	///
+	pub fn get_offset(&self) -> usize {
+		self.offset
 	}
 }
 
@@ -350,7 +364,7 @@ impl TAstNode for Statement {
 /// hint which the value must match and is used for type checking during the semantic analysis stage.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Let {
-	identifier: Identifier,
+	pub identifier: Identifier,
 	pub type_hint: TypeHint,
 	pub value: Expression,
 	location: Location,
@@ -444,6 +458,10 @@ impl If {
 			location: location,
 		}
 	}
+
+	pub fn get_id(&self) -> usize {
+		self.branches[0].get_id()
+	}
 }
 
 impl TAstNode for If {
@@ -470,6 +488,12 @@ impl Branch {
 			condition: condition,
 			consequence: consequence,
 		}
+	}
+
+	///
+	///
+	pub fn get_id(&self) -> usize {
+		self.consequence.id
 	}
 }
 
@@ -503,7 +527,7 @@ impl LoopControl {
 	}
 
 	/// Getter for `loop_id`.
-	pub fn get_loop_id(&mut self) -> usize {
+	pub fn get_loop_id(&self) -> usize {
 		self.loop_id
 	}
 }
