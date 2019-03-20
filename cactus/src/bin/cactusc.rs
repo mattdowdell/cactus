@@ -41,8 +41,6 @@ fn main() {
 			.expect("Unable to read file");
 	}
 
-	println!("{}", contents);
-
 	let compiler = Compiler::new();
 
 	match compiler.compile(&contents) {

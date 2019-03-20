@@ -214,11 +214,11 @@ impl TToBytecode for Loop {
 		let mut instructions = Vec::new();
 
 		let loop_start = Label::new(LabelType::LoopStart, self.get_id());
-		let loop_end = Label::new(LabelType::LoopStart, self.get_id());
+		let loop_end = Label::new(LabelType::LoopEnd, self.get_id());
 
-		instructions.push(Instruction::Pushaddr(format!("{}", loop_start)));
+		instructions.push(Instruction::Labeldef(format!("{}", loop_start)));
 		instructions.extend(self.body.to_bytecode()?);
-		instructions.push(Instruction::Pushaddr(format!("{}", loop_end)));
+		instructions.push(Instruction::Labeldef(format!("{}", loop_end)));
 
 		Ok(instructions)
 	}
@@ -305,11 +305,28 @@ impl TToBytecode for Infix {
 	fn to_bytecode(&self) -> Result<Vec<Instruction>, Vec<CompilationError>> {
 		let mut instructions = Vec::new();
 
-		// TODO: fix this for assignment expressions
+		if self.is_assignment() {
+			let ident = match *self.left.clone() {
+				Expression::Identifier(ident) => ident,
+				_ => panic!("TODO: throw internal error"),
+			};
+			let symbol = match ident.get_symbol_type() {
+				SymbolType::Argument => Symbol::Args,
+				SymbolType::Local    => Symbol::Locals,
 
-		instructions.extend(self.left.to_bytecode()?);
-		instructions.extend(self.right.to_bytecode()?);
-		instructions.extend(self.operator.to_bytecode()?);
+				_ => unimplemented!(),
+			};
+			let offset = ident.get_offset();
+
+			instructions.push(Instruction::push_symbol(symbol));
+			instructions.push(Instruction::push_offset(offset));
+			instructions.extend(self.right.to_bytecode()?);
+			instructions.push(Instruction::Storeidx);
+		} else {
+			instructions.extend(self.left.to_bytecode()?);
+			instructions.extend(self.right.to_bytecode()?);
+			instructions.extend(self.operator.to_bytecode()?);
+		}
 
 		Ok(instructions)
 	}
