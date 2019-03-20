@@ -9,9 +9,13 @@ use crate::error::{CompilationError, ErrorCode, type_error, lookup_error, syntax
 use crate::compiler::parser::{Ast, Module, Definition, Function, Block, Statement, Expression, TypeHint, TAstNode};
 
 use super::symbol_table::SymbolTable;
-use super::typing::FunctionSignature;
+use super::typing::{FunctionSignature, check_prefix_operator, check_infix_operator};
 
 
+///
+///
+///
+#[derive(Clone, Debug, PartialEq)]
 pub struct Analyser {
 	symbol_table: SymbolTable,
 	signatures: HashMap<String, FunctionSignature>,
@@ -88,11 +92,17 @@ impl Analyser {
 
 		self.signatures.insert(name, signature);
 
-		let index = self.symbol_table.new_sub_table(false);
+		let path = VecDeque::from_iter(self.symbol_path.clone());
+		let index = match self.symbol_table.new_sub_table(true, path.clone()) {
+			Ok(index) => index,
+			Err(error) => {
+				self.errors.push(error);
+				return;
+			}
+		};
 		self.symbol_path.push(index);
 
 		let path = VecDeque::from_iter(self.symbol_path.clone());
-
 		for argument in function.arguments.iter() {
 			match self.symbol_table.push_argument(argument.clone(), path.clone()) {
 				Ok(_) => {},
@@ -200,7 +210,14 @@ impl Analyser {
 						Err(_) => {},
 					}
 
-					let index = self.symbol_table.new_sub_table(true);
+					let path = VecDeque::from_iter(self.symbol_path.clone());
+					let index = match self.symbol_table.new_sub_table(true, path) {
+						Ok(index) => index,
+						Err(error) => {
+							self.errors.push(error);
+							return;
+						}
+					};
 					self.symbol_path.push(index);
 
 					self.analyse_block(&mut branch.consequence, loop_id);
@@ -209,7 +226,14 @@ impl Analyser {
 				}
 			}
 			Statement::Loop(ref mut loop_stmt) => {
-				let index = self.symbol_table.new_sub_table(true);
+				let path = VecDeque::from_iter(self.symbol_path.clone());
+				let index = match self.symbol_table.new_sub_table(true, path) {
+					Ok(index) => index,
+					Err(error) => {
+						self.errors.push(error);
+						return;
+					}
+				};
 				self.symbol_path.push(index);
 
 				let loop_id = loop_stmt.get_id();
@@ -274,8 +298,13 @@ impl Analyser {
 
 				match self.analyse_expression(&mut prefix.right) {
 					Ok(type_hint) => {
-						// TODO: check type is compatible with the operator
-						Ok(type_hint)
+						match check_prefix_operator(prefix.operator, type_hint, prefix.get_location()) {
+							Ok(type_hint) => Ok(type_hint),
+							Err(error) => {
+								self.errors.push(error);
+								Err(())
+							},
+						}
 					},
 					Err(_) => Err(()),
 				}
@@ -314,9 +343,13 @@ impl Analyser {
 											right_type_hint)))
 								}
 
-								// TODO: check types are compatible with operator
-
-								Ok(left_type_hint)
+								match check_infix_operator(infix.operator, left_type_hint, infix.get_location()) {
+									Ok(type_hint) => Ok(type_hint),
+									Err(error) => {
+										self.errors.push(error);
+										Err(())
+									},
+								}
 							},
 							Err(_) => Err(()),
 						}
@@ -413,9 +446,13 @@ mod test {
 
 				match analyser.analyse_ast(ast) {
 					Ok(_) => {
+						dbg!(analyser);
 						Ok(ast.clone())
 					},
-					Err(errors) => Err(errors),
+					Err(errors) => {
+						dbg!(analyser);
+						Err(errors)
+					}
 				}
 
 			},
@@ -429,170 +466,198 @@ mod test {
 		}
 	}
 
+
+	macro_rules! analyse_pass {
+		($res:expr) => (
+			match $res {
+				Ok(_) => {},
+				Err(errors) => {
+					for error in errors.iter() {
+						println!("{}", error);
+					}
+
+					panic!("Unexpected test failure");
+				}
+			}
+		)
+	}
+
+	macro_rules! analyse_fail {
+		($res:expr) => (
+			match $res {
+				Ok(_) => {
+					panic!("Unexpected test success");
+				},
+				Err(_) => {}
+			}
+		)
+	}
+
 	#[test]
 	fn test_simple() {
 		let res = analyse("fn x() {}");
-		assert!(res.is_ok());
+		analyse_pass!(res);
 	}
 
 	#[test]
 	fn test_undefined_function_call() {
 		let res = analyse("fn x() { invalid(); }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_defined_function_call() {
 		let res = analyse("fn exists() {} fn x() { exists(); }");
-		assert!(res.is_ok());
+		analyse_pass!(res);
 	}
 
 	#[test]
 	fn test_missing_return_statement() {
 		let res = analyse("fn x() -> i32 {}");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_with_return_statement() {
 		let res = analyse("fn x() -> i32 { return 5; }");
-		assert!(res.is_ok());
+		analyse_pass!(res);
 	}
 
 	#[test]
 	fn test_missing_return_type() {
 		let res = analyse("fn x() { return 5; }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_incorrect_return_type() {
 		let res = analyse("fn x() -> bool { return 5; }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_redefined_function() {
 		let res = analyse("fn x() {} fn x() {}");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_incorrect_num_args() {
 		let res = analyse("fn x() { x(5); }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_incorrect_type_args() {
 		let res = analyse("fn x(a: i32) { x(true); }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_break_outside_loop() {
 		let res = analyse("fn x() { break; }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_break_inside_loop() {
 		let res = analyse("fn x() { loop { break; } }");
-		assert!(res.is_ok());
+		analyse_pass!(res);
 	}
 
 	#[test]
 	fn test_continue_outside_loop() {
 		let res = analyse("fn x() { continue; }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_continue_inside_loop() {
 		let res = analyse("fn x() { loop { continue; } }");
-		assert!(res.is_ok());
+		analyse_pass!(res);
 	}
 
 	#[test]
 	fn test_conditional_non_bool() {
 		let res = analyse("fn x() { if 1 {} }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_conditional_bool() {
 		let res = analyse("fn x() { if true {} }");
-		assert!(res.is_ok());
+		analyse_pass!(res);
 	}
 
 	#[test]
 	fn test_conditional_assignment() {
 		let res = analyse("fn x() { if x = true {} }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_infix_assignment() {
 		let res = analyse("fn x() { 5 == x = 5; }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_prefix_assignment() {
 		let res = analyse("fn x() { -a = true; }");
-		assert!(res.is_err());
+		analyse_fail!(res);
 	}
 
 	#[test]
 	fn test_defined_argument() {
 		let res = analyse("fn x(a: i32) { a; }");
-		assert!(res.is_ok());
+		analyse_pass!(res);
 	}
 
 	#[test]
-        fn test_defined_local() {
-                let res = analyse("fn x() { let a: i32 = 5; a; }");
-                assert!(res.is_ok());
-        }
+	fn test_defined_local() {
+		let res = analyse("fn x() { let a: i32 = 5; a; }");
+		analyse_pass!(res);
+	}
 
 	#[test]
-        fn test_undefined_symbol() {
-                let res = analyse("fn x() { a; }");
-                assert!(res.is_err());
-        }
+	fn test_undefined_symbol() {
+		let res = analyse("fn x() { a; }");
+		analyse_fail!(res);
+	}
 
 	#[test]
-        fn test_defined_argument_access_in_block() {
-                let res = analyse("fn x(a: i32) { if true { a; } }");
-                assert!(res.is_ok());
-        }
+	fn test_defined_argument_access_in_block() {
+		let res = analyse("fn x(a: i32) { if true { a; } }");
+		analyse_pass!(res);
+	}
 
 	#[test]
-        fn test_defined_local_access_in_block() {
-                let res = analyse("fn x() { let a: i32 = 5; if true { a; } }");
-                assert!(res.is_ok());
-        }
+	fn test_defined_local_access_in_block() {
+		let res = analyse("fn x() { let a: i32 = 5; if true { a; } }");
+		analyse_pass!(res);
+	}
 
 	#[test]
-        fn test_defined_local_in_block() {
-                let res = analyse("fn x() { if true { let a: i32 = 5; a; } }");
-	        //assert!(res.is_ok());
-
-		match res {
-			Ok(_) => {},
-			Err(errors) => {
-				for error in errors.iter() {
-					println!("{}", error);
-				}
-
-				panic!("Unexpected failure");
-			},
-		}
-        }
+	fn test_defined_local_in_block() {
+		let res = analyse("fn x() { if true { let a: i32 = 5; a; } }");
+		analyse_pass!(res);
+	}
 
 	#[test]
-        fn test_defined_local_in_block_access_outside_block() {
-                let res = analyse("fn x() { if true { let a: i32 = 5; } a; }");
-                assert!(res.is_err());
-        }
+	fn test_defined_local_in_block_access_outside_block() {
+		let res = analyse("fn x() { if true { let a: i32 = 5; } a; }");
+		analyse_fail!(res);
+	}
+
+	#[test]
+	fn test_if_equals_operator() {
+		let res = analyse("fn x() { if 1 == 1 {} }");
+		analyse_pass!(res);
+	}
+
+	#[test]
+	fn test_if_not_equals_operator() {
+		let res = analyse("fn x() { if not (1 == 1) {} }");
+		analyse_pass!(res);
+	}
 }

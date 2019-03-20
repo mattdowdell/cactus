@@ -71,6 +71,8 @@ pub enum ErrorCode {
 	E0205, // mismatched operand types for infix expression
 	E0206, // incorrect type found on return statement
 	E0207, // incorrect type fund for let statement value
+	E0208, // incorrect type for prefix operator
+	E0209, // incorrect type for infix operator
 
 	// lookup errors
 	E0400, // function not defined before usage
@@ -87,6 +89,8 @@ pub enum ErrorCode {
 	E1004,
 	E1005,
 	E1006,
+	E1007, // non prefix operator given to check_prefix_operator
+	E1008, // non infix operator given to check_infix_operator
 
 }
 

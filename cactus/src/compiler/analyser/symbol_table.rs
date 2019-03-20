@@ -53,15 +53,30 @@ impl SymbolTable {
 	///
 	///
 	///
-	pub fn new_sub_table(&mut self, inherif_offset: bool) -> usize {
-		let offset = if inherif_offset { self.local_offset } else { 0 };
-		let table = SymbolTable::new(offset);
-		let item = SymbolItem::Table(table);
-		let index = self.items.len();
+	pub fn new_sub_table(&mut self, inherit_offset: bool, path: VecDeque<usize>) -> Result<usize, CompilationError> {
+		if path.len() > 0 {
+			let mut sub_path = path.clone();
+			let sub_index = sub_path.pop_front().unwrap();
 
-		self.items.push(item);
+			match self.items[sub_index] {
+				SymbolItem::Table(ref mut table) => table.new_sub_table(inherit_offset, sub_path),
+				_ => {
+					Err(internal_error(ErrorCode::E1006,
+						Location::end(),
+						format!("Expected table at index: {:?}",
+							sub_index)))
+				},
+			}
+		} else {
+			let offset = if inherit_offset { self.local_offset } else { 0 };
+			let table = SymbolTable::new(offset);
+			let item = SymbolItem::Table(table);
+			let index = self.items.len();
 
-		index
+			self.items.push(item);
+
+			Ok(index)
+		}
 	}
 
 	/// Add an argument to the symbol table.
@@ -275,7 +290,10 @@ mod test {
 		};
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.new_sub_table(false);
+		let sub_table_index = match table.new_sub_table(false, path.clone()) {
+			Ok(index) => index,
+			Err(error) => panic!("{}", error),
+		};
 		path.push_back(sub_table_index);
 
 		let res = table.push_argument(arg!("example"), path);
@@ -290,7 +308,10 @@ mod test {
 		let mut table = SymbolTable::new(0);
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.new_sub_table(false);
+		let sub_table_index = match table.new_sub_table(false, path.clone()) {
+			Ok(index) => index,
+			Err(error) => panic!("{}", error),
+		};
 		path.push_back(sub_table_index);
 
 		let res = table.push_argument(arg!("example"), path.clone());
@@ -323,7 +344,10 @@ mod test {
 		};
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.new_sub_table(false);
+		let sub_table_index = match table.new_sub_table(false, path.clone()) {
+			Ok(index) => index,
+			Err(error) => panic!("{}", error),
+		};
 		path.push_back(sub_table_index);
 
 		let res = table.push_local(let_stmt!("example"), path);
@@ -338,7 +362,10 @@ mod test {
 		let mut table = SymbolTable::new(0);
 
 		let mut path = VecDeque::new();
-		let sub_table_index = table.new_sub_table(false);
+		let sub_table_index = match table.new_sub_table(false, path.clone()) {
+			Ok(index) => index,
+			Err(error) => panic!("{}", error),
+		};
 		path.push_back(sub_table_index);
 
 		let res = table.push_local(let_stmt!("example"), path.clone());
