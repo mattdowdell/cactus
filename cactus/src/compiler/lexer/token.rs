@@ -69,6 +69,7 @@ impl Token {
 			"loop"     => TokenType::Loop,
 			"continue" => TokenType::Continue,
 			"break"    => TokenType::Break,
+			"print"    => TokenType::Print,
 
 			// primitive types
 			"bool" => TokenType::TypeBool,
@@ -154,6 +155,9 @@ mod test {
 			("elif", token!(TokenType::Elif)),
 			("else", token!(TokenType::Else)),
 			("loop", token!(TokenType::Loop)),
+			("continue", token!(TokenType::Continue)),
+			("break", token!(TokenType::Break)),
+			("print", token!(TokenType::Print)),
 			("bool", token!(TokenType::TypeBool)),
 			("i32", token!(TokenType::TypeInt32)),
 			("f32", token!(TokenType::TypeFloat)),

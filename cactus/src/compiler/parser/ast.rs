@@ -341,6 +341,7 @@ pub enum Statement {
 	If(If),
 	Break(LoopControl),
 	Continue(LoopControl),
+	Print(Expression),
 	Expression(Expression),
 }
 
@@ -353,6 +354,7 @@ impl TAstNode for Statement {
 			Statement::If(if_stmt)      => if_stmt.get_location(),
 			Statement::Break(ctrl)      => ctrl.get_location(),
 			Statement::Continue(ctrl)   => ctrl.get_location(),
+			Statement::Print(expr)      => expr.get_location(),
 			Statement::Expression(expr) => expr.get_location(),
 		}
 	}
@@ -397,6 +399,13 @@ impl Let {
 	///
 	pub fn get_type_hint(&self) -> TypeHint {
 		self.type_hint
+	}
+
+	///
+	///
+	///
+	pub fn set_offset(&mut self, offset: usize) {
+		self.identifier.set_offset(offset);
 	}
 }
 

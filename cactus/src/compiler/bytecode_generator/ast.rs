@@ -187,6 +187,12 @@ impl TToBytecode for Statement {
 				Ok(instructions)
 
 			},
+			Statement::Print(expr) => {
+				let mut instructions = expr.to_bytecode()?;
+				instructions.push(Instruction::Outln);
+
+				Ok(instructions)
+			},
 			Statement::Expression(expr) => {
 				expr.to_bytecode()
 			},
@@ -231,8 +237,8 @@ impl TToBytecode for If {
 		let if_end = Label::new(LabelType::IfEnd, self.get_id());
 
 		for (index, branch) in self.branches.iter().enumerate() {
-			let if_start = Label::new(LabelType::IfStart, self.get_id());
-			let if_body = Label::new(LabelType::IfBody, self.get_id());
+			let if_start = Label::new(LabelType::IfStart, branch.get_id());
+			let if_body = Label::new(LabelType::IfBody, branch.get_id());
 
 			instructions.push(Instruction::Labeldef(format!("{}", if_start)));
 			instructions.extend(branch.condition.to_bytecode()?);
@@ -248,6 +254,12 @@ impl TToBytecode for If {
 			}
 
 			instructions.push(Instruction::Pushaddr(format!("{}", if_body)));
+			instructions.push(Instruction::Jmp);
+
+			instructions.push(Instruction::Labeldef(format!("{}", if_body)));
+			instructions.extend(branch.consequence.to_bytecode()?);
+
+			instructions.push(Instruction::Pushaddr(format!("{}", if_end)));
 			instructions.push(Instruction::Jmp);
 		}
 
@@ -323,8 +335,8 @@ impl TToBytecode for Infix {
 			instructions.extend(self.right.to_bytecode()?);
 			instructions.push(Instruction::Storeidx);
 		} else {
-			instructions.extend(self.left.to_bytecode()?);
 			instructions.extend(self.right.to_bytecode()?);
+			instructions.extend(self.left.to_bytecode()?);
 			instructions.extend(self.operator.to_bytecode()?);
 		}
 

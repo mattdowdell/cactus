@@ -5,15 +5,19 @@ fn fib(n: i32) -> i32 {
 
 	let i: i32 = 3;
 
-	loop {
-		let c: i32 = a + b;
-		a = b;
-		b = c;
+	if i <= n {
+		loop {
+			let c: i32 = a + b;
+			a = b;
+			b = c;
 
-		if i <= n {
 			i += 1;
-		} else {
-			break;
+
+			if i <= n {
+				continue;
+			} else {
+				break;
+			}
 		}
 	}
 
@@ -21,5 +25,5 @@ fn fib(n: i32) -> i32 {
 }
 
 fn main() {
-	fib(3);
+	print fib(10);
 }

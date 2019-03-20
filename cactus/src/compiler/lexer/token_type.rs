@@ -82,6 +82,7 @@ pub enum TokenType {
 	Loop,
 	Continue,
 	Break,
+	Print,
 
 	// primitive types
 	TypeBool,
@@ -172,6 +173,7 @@ impl fmt::Display for TokenType {
 			TokenType::Loop     => write!(f, "loop"),
 			TokenType::Continue => write!(f, "coninue"),
 			TokenType::Break    => write!(f, "break"),
+			TokenType::Print    => write!(f, "print"),
 
 			// primitive types
 			TokenType::TypeBool   => write!(f, "bool"),

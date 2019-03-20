@@ -4,21 +4,34 @@ fib:
 	PUSH 1;
 	STOREIDX;
 	PUSH LOCALS;
-	PUSH 0;
+	PUSH 1;
 	PUSH 1;
 	STOREIDX;
 	PUSH LOCALS;
-	PUSH 0;
+	PUSH 2;
 	PUSH 3;
 	STOREIDX;
-loop_start_1:
-	PUSH LOCALS;
-	PUSH 0;
-	PUSH LOCALS;
+if_start_1:
+	PUSH ARGS;
 	PUSH 0;
 	LOADIDX;
 	PUSH LOCALS;
+	PUSH 2;
+	LOADIDX;
+	LEQ;
+	&if_end_1;
+	JMPNZ;
+	&if_body_1;
+	JMP;
+if_body_1:
+loop_start_2:
+	PUSH LOCALS;
+	PUSH 3;
+	PUSH LOCALS;
 	PUSH 1;
+	LOADIDX;
+	PUSH LOCALS;
+	PUSH 0;
 	LOADIDX;
 	ADD;
 	STOREIDX;
@@ -34,35 +47,57 @@ loop_start_1:
 	PUSH 3;
 	LOADIDX;
 	STOREIDX;
-if_start_2:
+	PUSH LOCALS;
+	PUSH 2;
+	PUSH 1;
 	PUSH LOCALS;
 	PUSH 2;
 	LOADIDX;
+	ADD;
+	STOREIDX;
+if_start_3:
 	PUSH ARGS;
 	PUSH 0;
 	LOADIDX;
+	PUSH LOCALS;
+	PUSH 2;
+	LOADIDX;
 	LEQ;
-	&if_start_3;
+	&if_start_4;
 	JMPNZ;
-	&if_body_2;
+	&if_body_3;
 	JMP;
-if_start_2:
+if_body_3:
+	&loop_start_2;
+	JMP;
+	&if_end_3;
+	JMP;
+if_start_4:
 	PUSH 0;
-	&if_end_2;
+	&if_end_3;
 	JMPNZ;
-	&if_body_2;
+	&if_body_4;
 	JMP;
-if_end_2:
-loop_end_1:
+if_body_4:
+	&loop_end_2;
+	JMP;
+	&if_end_3;
+	JMP;
+if_end_3:
+loop_end_2:
+	&if_end_1;
+	JMP;
+if_end_1:
 	PUSH LOCALS;
 	PUSH 1;
 	LOADIDX;
 	MOVRET;
 	RETURN;
 main:
-	PUSH 3;
+	PUSH 10;
 	PUSHARG;
 	&fib;
 	SUBCALL;
 	PUSHRET;
+	OUTLN;
 	HALT;

@@ -159,7 +159,9 @@ impl Analyser {
 				let path = VecDeque::from_iter(self.symbol_path.clone());
 
 				match self.symbol_table.push_local(let_stmt.clone(), path) {
-					Ok(_) => {},
+					Ok(offset) => {
+						let_stmt.set_offset(offset);
+					},
 					Err(error) => {
 						self.errors.push(error);
 					}
@@ -257,6 +259,11 @@ impl Analyser {
 						"Continue statement found outside of loop".to_string()));
 				} else {
 					ctrl.set_loop_id(loop_id.unwrap());
+				}
+			}
+			Statement::Print(ref mut expr) => {
+				match self.analyse_expression(expr) {
+					_ => {}
 				}
 			}
 			Statement::Expression(ref mut expr) => {

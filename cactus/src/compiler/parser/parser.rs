@@ -267,6 +267,7 @@ impl<'a> Parser<'a> {
 				TokenType::Loop     => self.parse_loop_statement()?,
 				TokenType::Break    => self.parse_break_statement()?,
 				TokenType::Continue => self.parse_continue_statement()?,
+				TokenType::Print    => self.parse_print_statement()?,
 				_                   => self.parse_expr_statement()?,
 			};
 
@@ -370,9 +371,20 @@ impl<'a> Parser<'a> {
 		Ok(Statement::Continue(ctrl))
 	}
 
+	// Parse a print statement.
+	fn parse_print_statement(&mut self) -> Result<Statement, CompilationError> {
+		self.expect_peek(TokenType::Print)?;
+
+		let expr = self.parse_expression(Precedence::Lowest)?;
+
+		self.expect_peek(TokenType::Semicolon)?;
+
+		Ok(Statement::Print(expr))
+	}
+
 	// Parse an expression statement.
 	//
-	//cAn expressions statement is simply an expression followed by a semicolon.
+	// An expression statement is simply an expression followed by a semicolon.
 	fn parse_expr_statement(&mut self) -> Result<Statement, CompilationError> {
 		let expr = self.parse_expression(Precedence::Lowest)?;
 
