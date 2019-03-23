@@ -5,7 +5,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::iter::FromIterator;
 
-use crate::error::{CompilationError, ErrorCode, type_error, lookup_error, syntax_error};
+use crate::compiler::error::{CompilationError, ErrorCode, type_error, lookup_error, syntax_error};
 use crate::compiler::parser::{Ast, Module, Definition, Function, Block, Statement, Expression, TypeHint, TAstNode};
 
 use super::symbol_table::SymbolTable;

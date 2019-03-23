@@ -7,8 +7,8 @@
 
 use std::iter::Peekable;
 
-use crate::error::{CompilationError, ErrorCode, syntax_error};
 use crate::location::Location;
+use crate::compiler::error::{CompilationError, ErrorCode, syntax_error};
 use crate::compiler::lexer::{Lexer, Token, TokenType};
 
 use super::ast::*;

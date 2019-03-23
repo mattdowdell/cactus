@@ -2,8 +2,8 @@
 //!
 //!
 
-use crate::error::CompilationError;
 use crate::bytecode::Instruction;
+use crate::compiler::error::CompilationError;
 use crate::compiler::parser::Ast;
 
 use super::ast::TToBytecode;

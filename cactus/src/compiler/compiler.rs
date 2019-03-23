@@ -2,11 +2,12 @@
 //!
 //!
 
-use crate::error::CompilationError;
-use crate::bytecode::Instruction;
+use crate::compiler::error::CompilationError;
 use crate::compiler::parser::Parser;
 use crate::compiler::analyser::Analyser;
 use crate::compiler::bytecode_generator::BytecodeGenerator;
+
+use crate::bytecode::Instruction;
 
 
 pub struct Compiler {}

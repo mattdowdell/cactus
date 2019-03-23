@@ -9,8 +9,6 @@ pub mod bytecode;
 pub mod compiler;
 
 // internal modules
-#[macro_use]
-mod error;
 mod location;
 
 pub use compiler::Compiler;

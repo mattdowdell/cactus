@@ -2,8 +2,8 @@
 //!
 //!
 
-use crate::error::{CompilationError, ErrorCode, type_error, internal_error};
 use crate::location::Location;
+use crate::compiler::error::{CompilationError, ErrorCode, type_error, internal_error};
 use crate::compiler::parser::{Function, TypeHint, Operator};
 
 

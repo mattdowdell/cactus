@@ -5,8 +5,8 @@
 
 use std::fmt;
 
-use crate::error::{CompilationError, ErrorCode, internal_error};
 use crate::location::Location;
+use crate::compiler::error::{CompilationError, ErrorCode, internal_error};
 use crate::compiler::lexer::{Token, TokenType};
 use crate::compiler::analyser::SymbolType;
 

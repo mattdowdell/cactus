@@ -2,8 +2,8 @@
 //!
 //!
 
-use crate::error::CompilationError;
 use crate::bytecode::{Instruction, Symbol};
+use crate::compiler::error::CompilationError;
 use crate::compiler::analyser::SymbolType;
 use crate::compiler::parser::{
 	Ast,

@@ -4,7 +4,7 @@
 //! variants of `Precedence` directly. The code for managing prefix operator precedence is baked
 //! into the parser to avoid conflict between prefix and infix operators.
 
-use crate::error::{CompilationError, ErrorCode, syntax_error};
+use crate::compiler::error::{CompilationError, ErrorCode, syntax_error};
 use crate::compiler::lexer::{Token, TokenType};
 
 

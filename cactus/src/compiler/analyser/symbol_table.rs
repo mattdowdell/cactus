@@ -4,8 +4,8 @@
 
 use std::collections::VecDeque;
 
-use crate::error::{CompilationError, ErrorCode, lookup_error, internal_error};
 use crate::location::Location;
+use crate::compiler::error::{CompilationError, ErrorCode, lookup_error, internal_error};
 use crate::compiler::parser::{Argument, Identifier, TypeHint, Let, TAstNode};
 
 
