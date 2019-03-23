@@ -2,11 +2,11 @@
 //!
 //!
 
-//pub mod eval;
-pub mod instruction;
-
 mod error;
 mod lexer;
 mod parser;
+mod eval;
+mod interpreter;
 
-pub use instruction::{Instruction, Literal, Symbol};
+pub use parser::{Instruction, Symbol};
+pub use interpreter::Interpreter;

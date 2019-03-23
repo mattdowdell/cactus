@@ -55,18 +55,21 @@ impl fmt::Display for BytecodeError {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorType {
 	SyntaxError,
+	LookupError,
 }
 
 impl fmt::Display for ErrorType {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			ErrorType::SyntaxError => write!(f, "Syntax Error"),
+			ErrorType::LookupError => write!(f, "Lookup Error"),
 		}
 	}
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorCode {
+	// syntax errors
 	E0001, // illegal character
 	E0002, // unclosed string
 	E0003, // illegal character in string
@@ -74,4 +77,8 @@ pub enum ErrorCode {
 	E0005, // invalid floating point number, e.g. "123."
 	E0006, // unexpected end of file
 	E0007, // unexpected token
+
+	// lookup errors
+	E0200, // label not defined
+	E0201, // invalid instruction index
 }

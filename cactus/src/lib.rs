@@ -12,3 +12,4 @@ pub mod compiler;
 mod location;
 
 pub use compiler::Compiler;
+pub use bytecode::Interpreter;

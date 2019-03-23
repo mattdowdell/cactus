@@ -9,6 +9,7 @@ use std::fs::File;
 use std::io::Read;
 
 use clap::{App, Arg};
+use cactus::Interpreter;
 
 
 fn main() {
@@ -40,5 +41,16 @@ fn main() {
 			.expect("Unable to read file");
 	}
 
-	println!("{}", contents);
+	let interpreter = Interpreter::new();
+
+	match interpreter.interpret(&contents) {
+		Ok(_) => {},
+		Err(errors) => {
+			for error in errors.iter() {
+				eprintln!("{}", error);
+			}
+
+			std::process::exit(1);
+		}
+	}
 }
