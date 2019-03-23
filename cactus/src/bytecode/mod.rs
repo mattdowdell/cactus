@@ -7,6 +7,6 @@ pub mod instruction;
 
 mod error;
 mod lexer;
-//mod parser;
+mod parser;
 
 pub use instruction::{Instruction, Literal, Symbol};

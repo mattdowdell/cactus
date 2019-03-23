@@ -91,64 +91,68 @@ impl Token {
 			Token::new_from_type(tt, location)
 		}
 	}
+
+	//
+	pub fn is_comment(&self) -> bool {
+		unimplemented!()
+	}
 }
 
 impl fmt::Display for Token {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self.token_type {
-			TokenType::Colon => write!(f, ":"),
-			TokenType::Semicolon => write!(f, ";"),
-			TokenType::Ampersand => write!(f, "&"),
-
 			TokenType::InlineComment => write!(f, "--{}", self.value.as_ref().unwrap()),
 			TokenType::BlockComment => write!(f, "{{-{}-}}", self.value.as_ref().unwrap()),
 
-			TokenType::Ident => write!(f, "{}", self.value.as_ref().unwrap()),
-			TokenType::Integer => write!(f, "{}", self.value.as_ref().unwrap()),
-			TokenType::Float => write!(f, "{}", self.value.as_ref().unwrap()),
+			TokenType::Ident
+			| TokenType::Integer
+			| TokenType::Float => write!(f, "{}", self.value.as_ref().unwrap()),
+
 			TokenType::String => write!(f, "\"{}\"", self.value.as_ref().unwrap()),
 
-			TokenType::Args => write!(f, "ARGS"),
-			TokenType::Locals => write!(f, "LOCALS"),
-
-			TokenType::Nop => write!(f, "NOP"),
-			TokenType::Halt => write!(f, "HALT"),
-			TokenType::Push => write!(f, "PUSH"),
-			TokenType::Pop => write!(f, "POP"),
-			TokenType::Dup => write!(f, "DUP"),
-			TokenType::Swap => write!(f, "SWAP"),
-			TokenType::Dumpstack => write!(f, "DUMPSTACK"),
-			TokenType::Dumpframe => write!(f, "DUMPFRAME"),
-			TokenType::Movret => write!(f, "MOVRET"),
-			TokenType::Pushret => write!(f, "PUSHRET"),
-			TokenType::Alloca => write!(f, "ALLOCA"),
-			TokenType::Pusharg => write!(f, "PUSHARG"),
-			TokenType::Out => write!(f, "OUT"),
-			TokenType::Outln => write!(f, "OUTLN"),
-			TokenType::In => write!(f, "IN"),
-			TokenType::Store => write!(f, "STORE"),
-			TokenType::Storeidx => write!(f, "STOREIDX"),
-			TokenType::Load => write!(f, "LOAD"),
-			TokenType::Loadidx => write!(f, "LOADIDX"),
-			TokenType::Eq => write!(f, "EQ"),
-			TokenType::Neq => write!(f, "NEQ"),
-			TokenType::Leq => write!(f, "LEQ"),
-			TokenType::Geq => write!(f, "GEQ"),
-			TokenType::Lt => write!(f, "LT"),
-			TokenType::Gt => write!(f, "GT"),
-			TokenType::Compl => write!(f, "COMPL"),
-			TokenType::Minus => write!(f, "MINUS"),
-			TokenType::Add => write!(f, "ADD"),
-			TokenType::Div => write!(f, "DIV"),
-			TokenType::Rem => write!(f, "REM"),
-			TokenType::Mul => write!(f, "MUL"),
-			TokenType::And => write!(f, "AND"),
-			TokenType::Or => write!(f, "OR"),
-			TokenType::Not => write!(f, "NOT"),
-			TokenType::Jmpnz => write!(f, "JMPNZ"),
-			TokenType::Jmp => write!(f, "JMP"),
-			TokenType::Subcall => write!(f, "SUBCALL"),
-			TokenType::Return => write!(f, "RETURN"),
+			TokenType::Colon
+			| TokenType::Semicolon
+			| TokenType::Ampersand
+			| TokenType::Args
+			| TokenType::Locals
+			| TokenType::Nop
+			| TokenType::Halt
+			| TokenType::Push
+			| TokenType::Pop
+			| TokenType::Dup
+			| TokenType::Swap
+			| TokenType::Dumpstack
+			| TokenType::Dumpframe
+			| TokenType::Movret
+			| TokenType::Pushret
+			| TokenType::Alloca
+			| TokenType::Pusharg
+			| TokenType::Out
+			| TokenType::Outln
+			| TokenType::In
+			| TokenType::Store
+			| TokenType::Storeidx
+			| TokenType::Load
+			| TokenType::Loadidx
+			| TokenType::Eq
+			| TokenType::Neq
+			| TokenType::Leq
+			| TokenType::Geq
+			| TokenType::Lt
+			| TokenType::Gt
+			| TokenType::Compl
+			| TokenType::Minus
+			| TokenType::Add
+			| TokenType::Div
+			| TokenType::Rem
+			| TokenType::Mul
+			| TokenType::And
+			| TokenType::Or
+			| TokenType::Not
+			| TokenType::Jmpnz
+			| TokenType::Jmp
+			| TokenType::Subcall
+			| TokenType::Return => write!(f, "{}", self.token_type),
 		}
 	}
 }

@@ -72,4 +72,6 @@ pub enum ErrorCode {
 	E0003, // illegal character in string
 	E0004, // unclosed block comment
 	E0005, // invalid floating point number, e.g. "123."
+	E0006, // unexpected end of file
+	E0007, // unexpected token
 }
