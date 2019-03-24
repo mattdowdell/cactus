@@ -4,6 +4,7 @@
 
 use std::fmt;
 
+use crate::bytecode::error::BytecodeError;
 use crate::bytecode::Symbol;
 
 ///
@@ -13,6 +14,7 @@ use crate::bytecode::Symbol;
 pub struct StackFrame {
 	args: Vec<StackItem>,
 	locals: Vec<StackItem>,
+	instruction_pointer: usize,
 }
 
 impl StackFrame {
@@ -23,35 +25,66 @@ impl StackFrame {
 		StackFrame {
 			args: Vec::new(),
 			locals: Vec::new(),
+			instruction_pointer: 0,
 		}
 	}
 
 	///
 	///
 	///
-	pub fn store_arg(&mut self, index: usize, item: StackItem) {
-		unimplemented!()
+	pub fn set_instruction_pointer(&mut self, pointer: usize) {
+		self.instruction_pointer = pointer;
 	}
 
 	///
 	///
 	///
-	pub fn load_arg(&mut self, index: usize) -> StackItem {
-		unimplemented!()
+	pub fn get_instruction_pointer(&mut self) -> usize {
+		self.instruction_pointer
+	}
+
+	///
+	///
+	///
+	pub fn push_arg(&mut self, item: StackItem) {
+		self.args.push(item);
+	}
+
+	///
+	///
+	///
+	pub fn load_arg(&mut self, index: usize) -> Result<StackItem, BytecodeError> {
+		match self.args.get(index) {
+			Some(item) => Ok(item.clone()),
+			None => {
+				unimplemented!()
+			}
+		}
 	}
 
 	///
 	///
 	///
 	pub fn store_local(&mut self, index: usize, item: StackItem) {
-		unimplemented!()
+		if index < self.locals.len() {
+			self.locals[index] = item;
+		} else if index == self.locals.len() {
+			self.locals.push(item);
+		} else {
+			unimplemented!()
+		}
 	}
 
 	///
 	///
 	///
-	pub fn load_local(&mut self, index: usize) -> StackItem {
-		unimplemented!()
+	pub fn load_local(&mut self, index: usize) -> Result<StackItem, BytecodeError> {
+		match self.locals.get(index) {
+			Some(item) => Ok(item.clone()),
+			None => {
+				unimplemented!()
+			}
+		}
 	}
 }
 

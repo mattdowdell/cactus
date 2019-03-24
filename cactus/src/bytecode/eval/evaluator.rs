@@ -3,9 +3,10 @@
 //!
 
 use std::io;
+use std::io::Write;
 
 use crate::bytecode::error::BytecodeError;
-use crate::bytecode::parser::{Module, Instruction, Symbol};
+use crate::bytecode::parser::{Module, Instruction, Literal, Symbol};
 
 use super::frame::{StackFrame, StackItem};
 
@@ -52,6 +53,24 @@ impl Evaluator {
 		self.eval_from_label("main")?;
 
 		Ok(())
+	}
+
+	//
+	//
+	//
+	fn get_frame(&mut self) -> &mut StackFrame {
+		&mut self.frames[self.frame_pointer]
+	}
+
+	//
+	//
+	//
+	fn get_next_frame(&mut self) -> &mut StackFrame {
+		if self.frames.len() <= self.frame_pointer {
+			self.frames.push(StackFrame::new());
+		}
+
+		&mut self.frames[self.frame_pointer + 1]
 	}
 
 	///
@@ -154,7 +173,7 @@ impl Evaluator {
 						continue;
 					}
 				},
-				Instruction::Labeldef(label) => {
+				Instruction::Labeldef(_) => {
 					// nothing to do
 				},
 				Instruction::Leq => {
@@ -167,8 +186,35 @@ impl Evaluator {
 						self.push(StackItem::Integer(1));
 					}
 				},
-				Instruction::Load => {},
-				Instruction::Loadidx => {},
+				Instruction::Load => {
+					let symbol = self.pop_symbol()?;
+
+					match symbol {
+						Symbol::Args => {
+							let item = self.get_frame().load_arg(0)?;
+							self.push(item.clone());
+						},
+						Symbol::Locals => {
+							let item = self.get_frame().load_local(0)?;
+							self.push(item.clone());
+						},
+					}
+				},
+				Instruction::Loadidx => {
+					let index = self.pop_integer()? as usize;
+					let symbol = self.pop_symbol()?;
+
+					match symbol {
+						Symbol::Args => {
+							let item = self.get_frame().load_arg(index)?;
+							self.push(item.clone());
+						},
+						Symbol::Locals => {
+							let item = self.get_frame().load_local(index)?;
+							self.push(item.clone());
+						},
+					}
+				},
 				Instruction::Lt => {
 					let left = self.pop_integer()?;
 					let right = self.pop_integer()?;
@@ -210,8 +256,22 @@ impl Evaluator {
 				Instruction::Nop => {
 					// nothing to do
 				},
-				Instruction::Not => {},
-				Instruction::Or => {},
+				Instruction::Not => {
+					let value = self.pop_integer()?;
+
+					if value == 0 {
+						self.push(StackItem::Integer(1));
+					} else {
+						self.push(StackItem::Integer(0));
+					}
+				},
+				Instruction::Or => {
+					let left = self.pop_integer()?;
+					let right = self.pop_integer()?;
+
+					let result = left | right;
+					self.push(StackItem::Integer(result));
+				},
 				Instruction::Out => {
 					let item = self.pop()?;
 					print!("{}", item);
@@ -227,13 +287,31 @@ impl Evaluator {
 				Instruction::Pop => {
 					self.pop()?;
 				},
-				Instruction::Push(literal) => {},
+				Instruction::Push(literal) => {
+					match literal {
+						Literal::Integer(val) => {
+							let integer = val.parse::<i32>().unwrap();
+							self.push(StackItem::Integer(integer));
+						},
+						Literal::Float(val) => {
+							let float = val.parse::<f32>().unwrap();
+							self.push(StackItem::Float(float));
+						},
+						Literal::String(val) => {
+							self.push(StackItem::String(val.clone()));
+						},
+						Literal::Symbol(val) => {
+							self.push(StackItem::Symbol(val));
+						},
+					}
+				},
 				Instruction::Pushaddr(label) => {
 					let addr = self.module.lookup_label(&label)?;
 					self.push(StackItem::Address(addr));
 				},
 				Instruction::Pusharg => {
-
+					let item = self.pop()?;
+					self.get_next_frame().push_arg(item);
 				},
 				Instruction::Pushret => {
 					match &self.return_register {
@@ -249,10 +327,58 @@ impl Evaluator {
 					self.push(StackItem::Integer(result));
 
 				},
-				Instruction::Return => {},
-				Instruction::Store => {},
-				Instruction::Storeidx => {},
-				Instruction::Subcall => {},
+				Instruction::Return => {
+					self.frame_pointer -= 1;
+					self.frames.pop();
+
+					let ip = self.get_frame().get_instruction_pointer();
+					self.instruction_pointer = ip;
+
+					continue;
+				},
+				Instruction::Store => {
+					let item = self.pop()?;
+					let symbol = self.pop_symbol()?;
+
+					match symbol {
+						Symbol::Args => {
+							unimplemented!()
+						},
+						Symbol::Locals => {
+							self.get_frame().store_local(0, item);
+						},
+					}
+				},
+				Instruction::Storeidx => {
+					let item = self.pop()?;
+					let index = self.pop_integer()? as usize;
+					let symbol = self.pop_symbol()?;
+
+					match symbol {
+						Symbol::Args => {
+							unimplemented!()
+						},
+						Symbol::Locals => {
+							self.get_frame().store_local(index, item);
+						},
+					}
+				},
+				Instruction::Subcall => {
+					// save the current instruction pointer
+					let ip = self.instruction_pointer + 1;
+					self.get_frame().set_instruction_pointer(ip);
+
+					// creates the next frame if it doesn't already exist
+					self.get_next_frame();
+
+					// move to the next frame
+					self.frame_pointer += 1;
+
+					let addr = self.pop_address()?;
+					self.instruction_pointer = addr;
+
+					continue;
+				},
 				Instruction::Swap => {
 					let left = self.pop()?;
 					let right = self.pop()?;
@@ -264,9 +390,6 @@ impl Evaluator {
 
 			self.instruction_pointer += 1;
 		}
-
-		// TODO: this should be an error as it's not a HALT
-		Ok(())
 	}
 
 	//
@@ -294,30 +417,6 @@ impl Evaluator {
 	fn pop_integer(&mut self) -> Result<i32, BytecodeError> {
 		match self.pop()? {
 			StackItem::Integer(val) => Ok(val),
-			_ => {
-				unimplemented!()
-			}
-		}
-	}
-
-	//
-	//
-	//
-	fn pop_float(&mut self) -> Result<f32, BytecodeError> {
-		match self.pop()? {
-			StackItem::Float(val) => Ok(val),
-			_ => {
-				unimplemented!()
-			}
-		}
-	}
-
-	//
-	//
-	//
-	fn pop_string(&mut self) -> Result<String, BytecodeError> {
-		match self.pop()? {
-			StackItem::String(val) => Ok(val),
 			_ => {
 				unimplemented!()
 			}
