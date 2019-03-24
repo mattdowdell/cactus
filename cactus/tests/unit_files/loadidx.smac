@@ -1,0 +1,17 @@
+main:
+	PUSH 1;
+	PUSHARG;
+	PUSH 2;
+	PUSHARG;
+	&example;
+	SUBCALL;
+	HALT;
+
+example:
+	PUSH ARGS;
+	PUSH 0;
+	LOADIDX;
+	PUSH ARGS;
+	PUSH 1;
+	LOADIDX;
+	RETURN;

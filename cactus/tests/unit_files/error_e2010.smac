@@ -1,0 +1,4 @@
+main:
+	PUSH 1.0;
+	PUSH 1;
+	ADD;

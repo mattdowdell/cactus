@@ -1,0 +1,3 @@
+main:
+	&does_not_exist;
+	JMP;

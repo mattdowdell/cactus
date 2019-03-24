@@ -1,0 +1,7 @@
+main:
+	&foo;
+	PUSH 5;
+	LOADIDX;
+
+foo:
+	NOP;

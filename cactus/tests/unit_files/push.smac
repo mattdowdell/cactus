@@ -1,0 +1,5 @@
+main:
+	PUSH 1;
+	PUSH 1.0;
+	PUSH "foo";
+	HALT;

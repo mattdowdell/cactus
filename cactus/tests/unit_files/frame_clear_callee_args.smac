@@ -1,0 +1,9 @@
+main:
+	PUSH 5;
+	PUSHARG;
+	&example;
+	SUBCALL;
+	HALT;
+
+example:
+	RETURN;

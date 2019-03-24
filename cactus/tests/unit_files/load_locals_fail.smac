@@ -1,0 +1,4 @@
+main:
+	PUSH LOCALS;
+	LOAD;
+	HALT;

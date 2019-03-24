@@ -1,0 +1,3 @@
+main:
+	PUSH ARGS;
+	HALT;

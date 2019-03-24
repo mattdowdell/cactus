@@ -1,0 +1,3 @@
+main:
+	PUSH 2;
+	LOAD;

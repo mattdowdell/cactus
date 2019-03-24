@@ -344,7 +344,10 @@ impl Evaluator {
 				},
 				Instruction::Pushret => {
 					match &self.return_register {
-						Some(item) => self.push(item.clone()),
+						Some(item) => {
+							self.push(item.clone());
+							self.return_register = None;
+						},
 						None => {
 							return Err(BytecodeError::new(ErrorType::LookupError,
 								ErrorCode::E0206,
@@ -507,4 +510,783 @@ impl Evaluator {
 			}
 		}
 	}
+}
+
+
+#[cfg(test)]
+mod test {
+	use std::{env, fs::File, io::Read};
+
+	use crate::bytecode::parser::Parser;
+	use super::*;
+
+	fn read_file(filename: &str) -> String {
+		let mut path = env::current_dir().unwrap();
+
+		path.push("tests/unit_files");
+		path.push(filename);
+
+		match File::open(path.to_str().unwrap()) {
+			Ok(mut file) => {
+				let mut contents = String::new();
+				file.read_to_string(&mut contents).expect("Error while reading from file");
+
+				contents
+			}
+			Err(msg) => {
+				println!("Error while opening file: {}: {}", filename, msg);
+				panic!("ERROR");
+			}
+		}
+	}
+
+	macro_rules! evaluate_file {
+		($filename:tt) => (
+			match Parser::new(&read_file($filename)).parse() {
+				Ok(module) => {
+					let mut eval = Evaluator::new(module);
+
+					match eval.eval() {
+						Ok(_) => {
+							eval.clone()
+						},
+						Err(error) => {
+							println!("{}", error);
+							panic!("Unexpected error during evaluation");
+						}
+					}
+				},
+				Err(errors) => {
+					for error in errors.iter() {
+						println!("{}", error);
+					}
+
+					panic!("Unexpected errors during parsing");
+				}
+			}
+		)
+	}
+
+	macro_rules! evaluate_file_fail {
+		($exc:ident, $filename:tt) => {
+			let input = read_file($filename);
+			let mut eval = Evaluator::new(&input);
+
+			let $exc = match eval.eval() {
+				Ok(_) => panic!("Unexpected success during evaluation"),
+				Err(exc) => exc,
+			};
+		}
+	}
+
+	#[test]
+	fn test_halt() {
+		evaluate_file!("halt.smac");
+	}
+
+	#[test]
+	fn test_push() {
+		let eval = evaluate_file!("push.smac");
+		let expected = vec![
+			StackItem::Integer(1),
+			StackItem::Float(1.0),
+			StackItem::String("foo".to_string()),
+		];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_push_args() {
+		let eval = evaluate_file!("push_args.smac");
+		let expected = vec![StackItem::Symbol(Symbol::Args)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_push_locals() {
+		let eval = evaluate_file!("push_locals.smac");
+		let expected = vec![StackItem::Symbol(Symbol::Locals)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_pop() {
+		let eval = evaluate_file!("pop.smac");
+		let expected = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_dup() {
+		let eval = evaluate_file!("dup.smac");
+		let expected = vec![StackItem::Integer(1), StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_swap() {
+		let eval = evaluate_file!("swap.smac");
+		let expected = vec![StackItem::Integer(5), StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_movret() {
+		let eval = evaluate_file!("movret.smac");
+		let expected = Some(StackItem::Integer(1));
+
+		assert_eq!(eval.return_register, expected);
+	}
+
+	#[test]
+	fn test_pushret() {
+		let eval = evaluate_file!("pushret.smac");
+		let expected = vec![StackItem::Integer(1)];
+
+		assert!(eval.return_register.is_none());
+		assert_eq!(eval.stack, expected);
+	}
+
+/*
+	#[test]
+	fn test_pushret_fail() {
+		evaluate_file_fail!(exc, "pushret_fail.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2005) found on line: 2, column: 2");
+		assert_eq!(exc.footer(), "Return register is not defined");
+	}
+*/
+
+
+	#[test]
+	fn test_pushaddr() {
+		let eval = evaluate_file!("pushaddr.smac");
+		let expected = vec![StackItem::Address(0)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+/*
+	#[test]
+	fn test_store() {
+		evaluate_file!(eval, "store.smac");
+		let expected_stack = vec![];
+		let expected_locations = hashmap!{
+			0x0 => StackItem::Integer(0),
+		};
+
+		assert_eq!(eval.stack, expected_stack);
+		assert_eq!(eval.locations, expected_locations);
+	}
+
+	#[test]
+	fn test_store_args() {
+		evaluate_file!(eval, "store_args.smac");
+		let expected = vec![StackItem::Integer(0)];
+
+		assert!(eval.stack.is_empty());
+		assert_eq!(eval.cur_frame.args, expected);
+	}
+
+	#[test]
+	fn test_store_args_twice() {
+		evaluate_file!(eval, "store_args_twice.smac");
+		let expected = vec![StackItem::Integer(0)];
+
+		assert!(eval.stack.is_empty());
+		assert_eq!(eval.cur_frame.args, expected);
+	}
+
+	#[test]
+	fn test_store_locals() {
+		evaluate_file!(eval, "store_locals.smac");
+		let expected = vec![StackItem::Integer(0)];
+
+		assert!(eval.stack.is_empty());
+		assert_eq!(eval.cur_frame.locals, expected);
+	}
+
+	#[test]
+	fn test_store_locals_twice() {
+		evaluate_file!(eval, "store_locals_twice.smac");
+		let expected = vec![StackItem::Integer(0)];
+
+		assert!(eval.stack.is_empty());
+		assert_eq!(eval.cur_frame.locals, expected);
+	}
+
+	#[test]
+	fn test_storeidx() {
+		evaluate_file!(eval, "storeidx.smac");
+		let expected = vec![StackItem::Integer(3)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_storeidx_non_symbol() {
+		evaluate_file_fail!(exc, "error_e2015_1.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2015) found on line: 5, column: 2");
+		assert_eq!(exc.footer(), "A symbol was requested from the stack but found: 0x5");
+	}
+
+	#[test]
+	fn test_load() {
+		evaluate_file!(eval, "load.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+		let expected_locations = hashmap!{
+			0x0 => StackItem::Integer(0),
+		};
+
+		assert_eq!(eval.stack, expected_stack);
+		assert_eq!(eval.locations, expected_locations);
+	}
+
+	#[test]
+	fn test_load_args() {
+		evaluate_file!(eval, "load_args.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+		let expected_args = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+		assert_eq!(eval.cur_frame.args, expected_args);
+	}
+
+	#[test]
+	fn test_load_args_fail() {
+		evaluate_file_fail!(exc, "load_args_fail.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2013) found on line: 3, column: 2");
+		assert_eq!(exc.footer(), "ARGS array does not have enough elements to perform this operation - Requested element: 1, array has 0 elements");
+	}
+
+	#[test]
+	fn test_load_locals() {
+		evaluate_file!(eval, "load_locals.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+		let expected_locals = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+		assert_eq!(eval.cur_frame.locals, expected_locals);
+	}
+
+	#[test]
+	fn test_load_locals_fail() {
+		evaluate_file_fail!(exc, "load_locals_fail.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2013) found on line: 3, column: 2");
+		assert_eq!(exc.footer(), "LOCALS array does not have enough elements to perform this operation - Requested element: 1, array has 0 elements");
+	}
+
+
+	#[test]
+	fn test_loadidx() {
+		evaluate_file!(eval, "loadidx.smac");
+		let expected_stack = vec![
+			StackItem::Integer(1),
+			StackItem::Integer(2),
+		];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_loadidx_non_symbol() {
+		evaluate_file_fail!(exc, "error_e2015_2.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2015) found on line: 4, column: 2");
+		assert_eq!(exc.footer(), "A symbol was requested from the stack but found: 0x4");
+	}
+
+	#[test]
+	fn test_eq_true() {
+		evaluate_file!(eval, "eq_true.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_eq_false() {
+		evaluate_file!(eval, "eq_false.smac");
+		let expected_stack = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_neq_true() {
+		evaluate_file!(eval, "neq_true.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_neq_false() {
+		evaluate_file!(eval, "neq_false.smac");
+		let expected_stack = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_leq_true_1() {
+		evaluate_file!(eval, "leq_true_1.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_leq_true_2() {
+		evaluate_file!(eval, "leq_true_2.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_leq_false() {
+		evaluate_file!(eval, "leq_false.smac");
+		let expected_stack = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_geq_true_1() {
+		evaluate_file!(eval, "geq_true_1.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_geq_true_2() {
+		evaluate_file!(eval, "geq_true_2.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_geq_false() {
+		evaluate_file!(eval, "geq_false.smac");
+		let expected_stack = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_lt_true() {
+		evaluate_file!(eval, "lt_true.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_lt_false_1() {
+		evaluate_file!(eval, "lt_false_1.smac");
+		let expected_stack = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_lt_false_2() {
+		evaluate_file!(eval, "lt_false_2.smac");
+		let expected_stack = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_gt_true() {
+		evaluate_file!(eval, "gt_true.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_gt_false_1() {
+		evaluate_file!(eval, "gt_false_1.smac");
+		let expected_stack = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_gt_false_2() {
+		evaluate_file!(eval, "gt_false_2.smac");
+		let expected_stack = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_not_1() {
+		evaluate_file!(eval, "not_1.smac");
+		let expected = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_not_2() {
+		evaluate_file!(eval, "not_2.smac");
+		let expected = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_minus() {
+		evaluate_file!(eval, "minus.smac");
+		let expected_stack = vec![StackItem::Integer(4)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_add() {
+		evaluate_file!(eval, "add.smac");
+		let expected_stack = vec![StackItem::Integer(6)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_div() {
+		evaluate_file!(eval, "div.smac");
+		let expected_stack = vec![StackItem::Integer(3)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_rem() {
+		evaluate_file!(eval, "rem.smac");
+		let expected_stack = vec![StackItem::Integer(1)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_mul() {
+		evaluate_file!(eval, "mul.smac");
+		let expected_stack = vec![StackItem::Integer(30)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_and_1() {
+		evaluate_file!(eval, "and_1.smac");
+		let expected_stack = vec![StackItem::Integer(0)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_and_2() {
+		evaluate_file!(eval, "and_2.smac");
+		let expected = vec![StackItem::Integer(10)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_or_1() {
+		evaluate_file!(eval, "or_1.smac");
+		let expected_stack = vec![StackItem::Integer(3)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_or_2() {
+		evaluate_file!(eval, "or_2.smac");
+		let expected_stack = vec![StackItem::Integer(15)];
+
+		assert_eq!(eval.stack, expected_stack);
+	}
+
+	#[test]
+	fn test_compl() {
+		evaluate_file!(eval, "compl.smac");
+		let expected = vec![StackItem::Integer(-8)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_jmp() {
+		evaluate_file!(eval, "jmp.smac");
+		let expected = vec![StackItem::Integer(5)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_jmpnz_1() {
+		evaluate_file!(eval, "jmpnz_1.smac");
+
+		assert!(eval.stack.is_empty());
+	}
+
+	#[test]
+	fn test_jmpnz_2() {
+		evaluate_file!(eval, "jmpnz_2.smac");
+		let expected = vec![StackItem::Integer(5)];
+
+		assert_eq!(eval.stack, expected);
+	}
+
+	#[test]
+	fn test_unreachable_instruction() {
+		evaluate_file_fail!(exc, "error_e2000.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2000) found on line: 1, column: 1");
+		assert_eq!(exc.footer(), "Unreachable instruction found: NOP");
+	}
+
+	#[test]
+	fn test_missing_halt() {
+		evaluate_file_fail!(exc, "error_e2001.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2001)");
+		assert_eq!(exc.footer(), "Did not find HALT before the end of \"main\"");
+	}
+
+	#[test]
+	fn test_missing_main() {
+		evaluate_file_fail!(exc, "error_e2002_1.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2002)");
+		assert_eq!(exc.footer(), "Unable to find label \"main\" in module");
+	}
+
+	#[test]
+	fn test_missing_label() {
+		evaluate_file_fail!(exc, "error_e2002_2.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2002)");
+		assert_eq!(
+			exc.footer(),
+			"Unable to find label \"does_not_exist\" in module"
+		);
+	}
+
+	#[test]
+	fn test_cannot_load_value_from_address() {
+		evaluate_file_fail!(exc, "error_e2007.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2007) found on line: 6, column: 2");
+		assert_eq!(exc.footer(), "Unable to load from address: 0x0");
+	}
+
+	#[test]
+	fn test_cannot_pop_from_empty_stack() {
+		evaluate_file_fail!(exc, "error_e2009.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2009) found on line: 2, column: 2");
+		assert_eq!(exc.footer(), "Unable to pop from empty stack");
+	}
+
+	#[test]
+	fn test_non_integer_on_stack() {
+		evaluate_file_fail!(exc, "error_e2010.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2010) found on line: 4, column: 2");
+		assert_eq!(
+			exc.footer(),
+			"An integer was requested from the stack but found: 1.0"
+		);
+	}
+
+	#[test]
+	fn test_non_address_on_stack() {
+		evaluate_file_fail!(exc, "error_e2011.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2011) found on line: 3, column: 2");
+		assert_eq!(
+			exc.footer(),
+			"An address was requested from the stack but found: 1.0"
+		);
+	}
+
+	#[test]
+	fn test_non_address_and_non_symbol_on_stack() {
+		evaluate_file_fail!(exc, "error_e2012.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2012) found on line: 3, column: 2");
+		assert_eq!(
+			exc.footer(),
+			"An address or symbol was requested from the stack but found: 2"
+		);
+	}
+
+	#[test]
+	fn test_storeidx_with_gaps() {
+		evaluate_file_fail!(exc, "error_e2014.smac");
+
+		assert_eq!(exc.header(), "ERROR (E2014) found on line: 5, column: 2");
+		assert_eq!(
+			exc.footer(),
+			"Inserting into ARGS array at index: 6 would introduce gaps in the array - Current length: 0"
+		);
+	}
+
+	#[test]
+	fn test_find_label() {
+		evaluate_file!(eval, "halt.smac");
+		let res = eval.find_label("main");
+
+		assert!(res.is_ok());
+		assert_eq!(res.unwrap(), 0)
+	}
+
+	#[test]
+	fn test_find_label_error() {
+		evaluate_file!(eval, "halt.smac");
+		let res = eval.find_label("does_not_exist");
+
+		assert!(res.is_err());
+
+		let exc = res.err().unwrap();
+
+		assert_eq!(exc.header(), "ERROR (E2002)");
+		assert_eq!(
+			exc.footer(),
+			"Unable to find label \"does_not_exist\" in module"
+		);
+	}
+
+	#[test]
+	fn test_push_stack() {
+		let mut eval = Evaluator::new("main:\nNOP;");
+
+		eval.push_stack(StackItem::Integer(5));
+
+		assert_eq!(eval.stack.len(), 1);
+	}
+
+	#[test]
+	fn test_pop_stack() {
+		let mut eval = Evaluator::new("main:\nNOP;");
+		let instr = InstructionData::new(Instruction::Nop, 2, 1);
+
+		eval.push_stack(StackItem::Integer(5));
+
+		let res = eval.pop_stack(&instr);
+
+		assert!(res.is_ok());
+		assert_eq!(res.unwrap(), StackItem::Integer(5));
+	}
+
+	#[test]
+	fn test_pop_stack_empty() {
+		let mut eval = Evaluator::new("main:\nNOP;");
+		let instr = InstructionData::new(Instruction::Nop, 2, 1);
+		let res = eval.pop_stack(&instr);
+
+		assert!(res.is_err());
+
+		let exc = res.err().unwrap();
+		assert_eq!(exc.header(), "ERROR (E2009) found on line: 2, column: 1");
+		assert_eq!(exc.footer(), "Unable to pop from empty stack");
+	}
+
+	#[test]
+	fn test_pop_stack_int() {
+		let mut eval = Evaluator::new("main:\nNOP;");
+		let instr = InstructionData::new(Instruction::Nop, 2, 1);
+
+		eval.push_stack(StackItem::Integer(5));
+
+		let res = eval.pop_stack_int(&instr);
+
+		assert!(res.is_ok());
+		assert_eq!(res.unwrap(), 5);
+	}
+
+	#[test]
+	fn test_pop_stack_int_not_found() {
+		let mut eval = Evaluator::new("main:\nNOP;");
+		let instr = InstructionData::new(Instruction::Nop, 2, 1);
+
+		eval.push_stack(StackItem::Double(1.0));
+
+		let res = eval.pop_stack_int(&instr);
+
+		assert!(res.is_err());
+
+		let exc = res.err().unwrap();
+		assert_eq!(exc.header(), "ERROR (E2010) found on line: 2, column: 1");
+		assert_eq!(
+			exc.footer(),
+			"An integer was requested from the stack but found: 1.0"
+		);
+	}
+
+	#[test]
+	fn test_pop_stack_addr() {
+		let mut eval = Evaluator::new("main:\nNOP;");
+		let instr = InstructionData::new(Instruction::Nop, 2, 1);
+
+		eval.push_stack(StackItem::Address(0));
+
+		let res = eval.pop_stack_addr(&instr);
+
+		assert!(res.is_ok());
+		assert_eq!(res.unwrap(), 0);
+	}
+
+	#[test]
+	fn test_pop_stack_addr_not_found() {
+		let mut eval = Evaluator::new("main:\nNOP;");
+		let instr = InstructionData::new(Instruction::Nop, 2, 1);
+
+		eval.push_stack(StackItem::Double(1.0));
+
+		let res = eval.pop_stack_addr(&instr);
+
+		assert!(res.is_err());
+
+		let exc = res.err().unwrap();
+		assert_eq!(exc.header(), "ERROR (E2011) found on line: 2, column: 1");
+		assert_eq!(
+			exc.footer(),
+			"An address was requested from the stack but found: 1.0"
+		);
+	}
+
+	#[test]
+	fn test_frame_pusharg() {
+		evaluate_file!(eval, "frame_pusharg.smac");
+		let expected = vec![
+			StackItem::Integer(5),
+		];
+
+		assert_eq!(eval.cur_frame.args, expected);
+		assert!(eval.cur_frame.callee_args.is_empty());
+	}
+
+	#[test]
+	fn test_frame_clear_callee_args() {
+		evaluate_file!(eval, "frame_clear_callee_args.smac");
+
+		assert!(eval.cur_frame.callee_args.is_empty());
+	}
+*/
 }

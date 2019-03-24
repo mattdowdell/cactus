@@ -1,0 +1,5 @@
+main:
+	PUSH 0;
+	PUSH 0;
+	GT;
+	HALT;

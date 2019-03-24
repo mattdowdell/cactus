@@ -203,3 +203,73 @@ impl<'a> Parser<'a> {
 		Ok(instr)
 	}
 }
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn test_ignore_inline_comment() {
+		let input = "main:\nNOP;\n-- comment\n";
+		let mut parser = Parser::new(input);
+
+		assert!(parser.parse().is_ok());
+	}
+
+	#[test]
+	fn test_ignore_block_comment() {
+		let input = "main:\nNOP;\n{- comment -}\n";
+		let mut parser = Parser::new(input);
+
+		assert!(parser.parse().is_ok());
+	}
+
+	#[test]
+	fn test_unexpected_non_instruction() {
+		let input = "main:\n;";
+		let mut parser = Parser::new(input);
+
+		assert!(parser.parse().is_err());
+	}
+
+	#[test]
+	fn test_missing_ident_after_ampersand() {
+		let input = "main:\n&;";
+		let mut parser = Parser::new(input);
+
+		assert!(parser.parse().is_err());
+	}
+
+	#[test]
+	fn test_missing_literal_after_push() {
+		let input = "main:\nPUSH;";
+		let mut parser = Parser::new(input);
+
+		assert!(parser.parse().is_err());
+	}
+
+	#[test]
+	fn test_label_missing_colon() {
+		let input = "main";
+		let mut parser = Parser::new(input);
+
+		assert!(parser.parse().is_err());
+	}
+
+	#[test]
+	fn test_instruction_missing_semicolon() {
+		let input = "main:NOP";
+		let mut parser = Parser::new(input);
+
+		assert!(parser.parse().is_err());
+	}
+
+	#[test]
+	fn test_unexpected_token() {
+		let input = "main:;";
+		let mut parser = Parser::new(input);
+
+		assert!(parser.parse().is_err());
+	}
+}
+

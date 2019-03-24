@@ -1,0 +1,7 @@
+foo:
+	PUSH 5;
+	HALT;
+	main:
+	&foo;
+	JMP;
+	HALT;

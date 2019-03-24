@@ -1,0 +1,4 @@
+main:
+	PUSH 7;
+	COMPL;
+	HALT;

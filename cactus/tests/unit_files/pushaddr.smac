@@ -1,0 +1,6 @@
+foo:
+	NOP;
+
+main:
+	&foo;
+	HALT;

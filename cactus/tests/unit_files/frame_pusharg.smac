@@ -1,0 +1,8 @@
+main:
+	PUSH 5;
+	PUSHARG;
+	&foo;
+	SUBCALL;
+
+foo:
+	HALT;

@@ -1,0 +1,5 @@
+main:
+	PUSH ARGS;
+	PUSH 0;
+	STORE;
+	HALT;

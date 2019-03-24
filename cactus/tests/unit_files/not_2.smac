@@ -1,0 +1,4 @@
+main:
+	PUSH 0;
+	NOT;
+	HALT;

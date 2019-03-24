@@ -1,0 +1,5 @@
+main:
+	PUSH 5;
+	PUSH 0;
+	EQ;
+	HALT;

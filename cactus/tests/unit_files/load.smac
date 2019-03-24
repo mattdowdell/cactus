@@ -1,0 +1,10 @@
+foo:
+	NOP;
+
+main:
+	&foo;
+	PUSH 0;
+	STORE;
+	&foo;
+	LOAD;
+	HALT;

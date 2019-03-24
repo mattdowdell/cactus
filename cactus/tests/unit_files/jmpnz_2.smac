@@ -1,0 +1,9 @@
+foo:
+	PUSH 5;
+	HALT;
+
+main:
+	PUSH 1;
+	&foo;
+	JMPNZ;
+	HALT;

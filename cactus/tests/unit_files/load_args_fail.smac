@@ -1,0 +1,4 @@
+main:
+	PUSH ARGS;
+	LOAD;
+	HALT;

@@ -1,0 +1,8 @@
+main:
+	&foo;
+	PUSH 5;
+	PUSH 5;
+	STOREIDX;
+
+foo:
+	NOP;

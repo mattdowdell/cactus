@@ -1,0 +1,5 @@
+main:
+	PUSH 3;
+	PUSH 10;
+	REM;
+	HALT;

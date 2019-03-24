@@ -1,0 +1,5 @@
+main:
+	PUSH ARGS;
+	PUSH 5;
+	PUSH 5;
+	STOREIDX;
