@@ -156,7 +156,32 @@ impl Evaluator {
 					return Ok(());
 				},
 				Instruction::In => {
-					unimplemented!()
+					let mut input = String::new();
+
+					match io::stdin().read_line(&mut input) {
+						Ok(_) => {
+							if !input.is_empty() {
+								// trim trailing newline
+								let len = input.len() - 1;
+								input.truncate(len);
+
+								match input.parse::<i32>() {
+									Ok(value) => self.push(StackItem::Integer(value)),
+									Err(_) => {
+										// parse error
+										unimplemented!()
+									}
+								}
+							} else {
+								// zero-length input
+								unimplemented!()
+							}
+						}
+						Err(_error) => {
+							// read failed
+							unimplemented!()
+						}
+					}
 				},
 				Instruction::Jmp => {
 					let addr = self.pop_address()?;
