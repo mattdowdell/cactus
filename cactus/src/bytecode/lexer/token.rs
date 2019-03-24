@@ -94,7 +94,11 @@ impl Token {
 
 	//
 	pub fn is_comment(&self) -> bool {
-		unimplemented!()
+		match self.token_type {
+			TokenType::InlineComment
+			| TokenType::BlockComment => true,
+			_ => false,
+		}
 	}
 }
 

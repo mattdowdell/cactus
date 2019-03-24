@@ -143,7 +143,8 @@ impl Evaluator {
 						self.push(StackItem::Integer(1));
 					}
 				},
-				Instruction::Gt => {let left = self.pop_integer()?;
+				Instruction::Gt => {
+					let left = self.pop_integer()?;
 					let right = self.pop_integer()?;
 
 					if left > right {
@@ -152,7 +153,7 @@ impl Evaluator {
 						self.push(StackItem::Integer(1));
 					}},
 				Instruction::Halt => {
-					// TODO: return a code saying what this was
+					// TODO: return a code saying what this was?
 					return Ok(());
 				},
 				Instruction::In => {

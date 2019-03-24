@@ -7,8 +7,7 @@ use std::iter::Peekable;
 use crate::location::Location;
 use crate::bytecode::error::{BytecodeError, ErrorType, ErrorCode};
 use crate::bytecode::lexer::{Lexer, Token, TokenType};
-use crate::bytecode::Instruction;
-use super::ast::Module;
+use super::ast::{Module, Instruction, Literal, Symbol};
 
 ///
 ///
@@ -110,7 +109,32 @@ impl<'a> Parser<'a> {
 			},
 
 			TokenType::Push => {
-				unimplemented!()
+				let next = self.lexer.next();
+
+				if next.is_none() {
+					Err(BytecodeError::new(ErrorType::SyntaxError,
+						ErrorCode::E0006,
+						Location::end(),
+						"Unexpected end of file. Expected <literal>".to_string()))
+				} else {
+					let next = next.unwrap()?;
+					let literal = match next.token_type {
+						TokenType::Integer => Literal::Integer(token.value.unwrap().clone()),
+						TokenType::Float   => Literal::Float(token.value.unwrap().clone()),
+						TokenType::String  => Literal::String(token.value.unwrap().clone()),
+						TokenType::Args    => Literal::Symbol(Symbol::Args),
+						TokenType::Locals  => Literal::Symbol(Symbol::Locals),
+						_ => {
+							return Err(BytecodeError::new(ErrorType::SyntaxError,
+								ErrorCode::E0007,
+								token.location,
+								format!("Unexpected token: {} ({:?}). Expected: <literal>",
+									token, token.token_type)));
+						}
+					};
+
+					Ok(Instruction::Push(literal))
+				}
 			},
 
 			// simple
