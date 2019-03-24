@@ -1,0 +1,18 @@
+main:
+
+lab1:
+  &Lab_3;
+  JMP ;
+
+lab_2:
+  NOP ;
+
+Lab_3:
+  NOP ;
+
+lab_:
+  NOP ;
+  PUSH 10;
+  OUTLN ;
+
+  HALT ;

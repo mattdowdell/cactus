@@ -1,0 +1,15 @@
+main:
+  PUSH 1;
+  PUSH 2;
+  NEQ ;
+  &notzero ;
+  JMPNZ;
+
+  PUSH "ZERO";
+  OUTLN;
+  HALT;
+
+notzero:
+  PUSH "ZERO";
+  OUTLN;
+  HALT;

@@ -1,0 +1,12 @@
+fun:
+   PUSH 1 ;  -- push value to output
+   OUTLN ;     -- output top of stack
+   RETURN ;
+
+-- main is the entry point
+main:
+   &fun ;
+   SUBCALL ;
+   PUSH 2 ;
+   OUTLN ;
+   HALT ;

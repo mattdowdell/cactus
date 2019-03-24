@@ -1,0 +1,8 @@
+main:
+  PUSH "Enter n: " ;
+  OUT ;
+  IN ;
+  PUSH "You entered: " ;
+  OUT ;
+  OUTLN ;
+  HALT ;

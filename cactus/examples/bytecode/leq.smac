@@ -1,0 +1,6 @@
+main:
+  PUSH 2;
+  PUSH 1;
+  LEQ ;
+  OUTLN ;
+  HALT ;

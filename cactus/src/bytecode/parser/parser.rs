@@ -119,17 +119,27 @@ impl<'a> Parser<'a> {
 				} else {
 					let next = next.unwrap()?;
 					let literal = match next.token_type {
-						TokenType::Integer => Literal::Integer(token.value.unwrap().clone()),
-						TokenType::Float   => Literal::Float(token.value.unwrap().clone()),
-						TokenType::String  => Literal::String(token.value.unwrap().clone()),
-						TokenType::Args    => Literal::Symbol(Symbol::Args),
-						TokenType::Locals  => Literal::Symbol(Symbol::Locals),
+						TokenType::Integer => {
+							Literal::Integer(next.value.unwrap().clone())
+						},
+						TokenType::Float   => {
+							Literal::Float(next.value.unwrap().clone())
+						},
+						TokenType::String  => {
+							Literal::String(next.value.unwrap().clone())
+						},
+						TokenType::Args    => {
+							Literal::Symbol(Symbol::Args)
+						},
+						TokenType::Locals  => {
+							Literal::Symbol(Symbol::Locals)
+						},
 						_ => {
 							return Err(BytecodeError::new(ErrorType::SyntaxError,
 								ErrorCode::E0007,
-								token.location,
+								next.location,
 								format!("Unexpected token: {} ({:?}). Expected: <literal>",
-									token, token.token_type)));
+									next, next.token_type)));
 						}
 					};
 
@@ -146,7 +156,6 @@ impl<'a> Parser<'a> {
 			TokenType::Swap      => Ok(Instruction::Swap),
 			TokenType::Movret    => Ok(Instruction::Movret),
 			TokenType::Pushret   => Ok(Instruction::Pushret),
-			TokenType::Alloca    => Ok(Instruction::Alloca),
 			TokenType::Pusharg   => Ok(Instruction::Pusharg),
 			TokenType::Dumpstack => Ok(Instruction::Dumpstack),
 			TokenType::Dumpframe => Ok(Instruction::Dumpframe),

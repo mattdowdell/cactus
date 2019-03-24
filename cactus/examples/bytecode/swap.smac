@@ -1,0 +1,7 @@
+main:
+  PUSH 20;
+  PUSH 10;
+  DUMPSTACK;
+  SWAP;
+  DUMPSTACK;
+  HALT ;

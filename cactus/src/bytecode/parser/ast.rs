@@ -84,7 +84,6 @@ impl Module {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Instruction {
 	Add,
-	Alloca,
 	And,
 	Compl,
 	Div,
@@ -159,7 +158,6 @@ impl fmt::Display for Instruction {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Instruction::Add             => write!(f, "\tADD;"),
-			Instruction::Alloca          => write!(f, "\tALLOCA;"),
 			Instruction::And             => write!(f, "\tAND;"),
 			Instruction::Compl           => write!(f, "\tCOMPL;"),
 			Instruction::Div             => write!(f, "\tDIV;"),

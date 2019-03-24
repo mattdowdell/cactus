@@ -52,7 +52,6 @@ impl Token {
 			"SWAP"      => TokenType::Swap,
 			"MOVRET"    => TokenType::Movret,
 			"PUSHRET"   => TokenType::Pushret,
-			"ALLOCA"    => TokenType::Alloca,
 			"PUSHARG"   => TokenType::Pusharg,
 			"DUMPSTACK" => TokenType::Dumpstack,
 			"DUMPFRAME" => TokenType::Dumpframe,
@@ -129,7 +128,6 @@ impl fmt::Display for Token {
 			| TokenType::Dumpframe
 			| TokenType::Movret
 			| TokenType::Pushret
-			| TokenType::Alloca
 			| TokenType::Pusharg
 			| TokenType::Out
 			| TokenType::Outln
@@ -223,7 +221,6 @@ mod test {
 			("DUMPFRAME", TokenType::Dumpframe),
 			("MOVRET", TokenType::Movret),
 			("PUSHRET", TokenType::Pushret),
-			("ALLOCA", TokenType::Alloca),
 			("PUSHARG", TokenType::Pusharg),
 			("OUT", TokenType::Out),
 			("OUTLN", TokenType::Outln),

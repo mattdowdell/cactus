@@ -56,6 +56,7 @@ impl fmt::Display for BytecodeError {
 pub enum ErrorType {
 	SyntaxError,
 	LookupError,
+	RuntimeError,
 }
 
 impl fmt::Display for ErrorType {
@@ -63,6 +64,7 @@ impl fmt::Display for ErrorType {
 		match self {
 			ErrorType::SyntaxError => write!(f, "Syntax Error"),
 			ErrorType::LookupError => write!(f, "Lookup Error"),
+			ErrorType::RuntimeError => write!(f, "Runtime Error"),
 		}
 	}
 }
@@ -81,4 +83,18 @@ pub enum ErrorCode {
 	// lookup errors
 	E0200, // label not defined
 	E0201, // invalid instruction index
+	E0202, // unable to load argument
+	E0203, // unable to store local
+	E0204, // unable to load local
+	E0205, // unable to manipulate arguments using STORE/STOREIDX
+	E0206, // PUSHRET on empty return register
+	E0207, // attempt to pop from empty stack
+	E0208, // non-integer on the stack
+	E0209, // non-symbol on the stack
+	E0210, // non-address on the stack
+
+	// runtime errors
+	E0400, // unable to convert value to i32
+	E0401, // no input given
+	E0402, // error reading from stdin
 }

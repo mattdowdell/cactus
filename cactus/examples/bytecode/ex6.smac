@@ -1,0 +1,16 @@
+someExpr:
+  DUP;
+  PUSH 10;
+  MUL;
+  SWAP;
+  DUP;
+  ADD;
+  ADD;
+  RETURN;
+
+main:
+  PUSH 1;
+  &someExpr;
+  SUBCALL;
+  OUTLN;
+  HALT;

@@ -1,0 +1,29 @@
+x:
+   NOP ;    -- reserve space for x
+y:
+   NOP ;    -- reserve space for y
+
+-- define subroutine
+addxy:
+   PUSH ARGS ;
+   LOAD ;
+   PUSH ARGS ;
+   PUSH 1 ;
+   LOADIDX ;
+   ADD ;    -- A + B, leave result on stack
+   MOVRET ;
+   RETURN ; -- return to caller
+
+-- main is the entry point
+main:
+   PUSH 2 ;  -- value to add
+   PUSHARG ;   -- write 2 to location x
+   PUSH 1 ;  -- value to add
+   PUSHARG ;
+   &addxy ;  -- address of addxy on stack
+   SUBCALL ; -- transfer control to addxy
+   PUSH "x + y = ";
+   OUT ;
+   PUSHRET ;
+   OUTLN ;     -- output result of addxy
+   HALT ;

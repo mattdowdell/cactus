@@ -1,0 +1,55 @@
+{-
+  Simple implementation of fib(n)
+-}
+
+fib:
+  DUP;
+  PUSH 2;
+  GEQ;
+  &ifnotreturn;
+  JMPNZ;
+
+  -- return...
+  POP ;
+  PUSH 1;
+  &fibexit;
+  JMP;
+
+ifnotreturn:
+  DUP ;
+  PUSH -1 ;
+  ADD ;
+
+  &fib ;
+  SUBCALL ;
+
+  SWAP;
+
+  PUSH -2;
+  ADD ;
+  &fib ;
+  SUBCALL ;
+  ADD ;
+
+  &fibexit;
+  JMP;
+
+
+fibexit:
+  RETURN;
+
+main:
+  PUSH "Enter a number: ";
+  OUT ;
+  IN ;
+  DUP ;
+  &fib;
+  SUBCALL ;
+  SWAP ;
+  PUSH "fib(" ;
+  OUT ;
+  OUT ;
+  PUSH ") = " ;
+  OUT ;
+  OUTLN ;
+  HALT;

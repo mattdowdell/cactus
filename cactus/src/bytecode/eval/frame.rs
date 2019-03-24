@@ -4,7 +4,8 @@
 
 use std::fmt;
 
-use crate::bytecode::error::BytecodeError;
+use crate::location::Location;
+use crate::bytecode::error::{BytecodeError, ErrorType, ErrorCode};
 use crate::bytecode::Symbol;
 
 ///
@@ -57,7 +58,11 @@ impl StackFrame {
 		match self.args.get(index) {
 			Some(item) => Ok(item.clone()),
 			None => {
-				unimplemented!()
+				Err(BytecodeError::new(ErrorType::LookupError,
+					ErrorCode::E0202,
+					Location::end(),
+					format!("Unable to load argument from index: {}",
+						index)))
 			}
 		}
 	}
@@ -65,13 +70,21 @@ impl StackFrame {
 	///
 	///
 	///
-	pub fn store_local(&mut self, index: usize, item: StackItem) {
+	pub fn store_local(&mut self, index: usize, item: StackItem) -> Result<(), BytecodeError> {
 		if index < self.locals.len() {
 			self.locals[index] = item;
+			Ok(())
+
 		} else if index == self.locals.len() {
 			self.locals.push(item);
+			Ok(())
+
 		} else {
-			unimplemented!()
+			Err(BytecodeError::new(ErrorType::LookupError,
+				ErrorCode::E0203,
+				Location::end(),
+				format!("Unable to store local at index: {}, as it would introduce gaps",
+					index)))
 		}
 	}
 
@@ -82,7 +95,11 @@ impl StackFrame {
 		match self.locals.get(index) {
 			Some(item) => Ok(item.clone()),
 			None => {
-				unimplemented!()
+				Err(BytecodeError::new(ErrorType::LookupError,
+					ErrorCode::E0204,
+					Location::end(),
+					format!("Unable to load local from index: {}",
+						index)))
 			}
 		}
 	}

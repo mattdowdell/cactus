@@ -5,7 +5,8 @@
 use std::io;
 use std::io::Write;
 
-use crate::bytecode::error::BytecodeError;
+use crate::location::Location;
+use crate::bytecode::error::{BytecodeError, ErrorType, ErrorCode};
 use crate::bytecode::parser::{Module, Instruction, Literal, Symbol};
 
 use super::frame::{StackFrame, StackItem};
@@ -31,8 +32,10 @@ impl Evaluator {
 	///
 	pub fn new(module: Module) -> Evaluator {
 		Evaluator {
-			frames: Vec::new(),
 			frame_pointer: 0,
+			frames: vec![
+				StackFrame::new(),
+			],
 
 			module: module,
 			instruction_pointer: 0,
@@ -46,12 +49,7 @@ impl Evaluator {
 	///
 	///
 	pub fn eval(&mut self) -> Result<(), BytecodeError> {
-		let frame = StackFrame::new();
-		self.frames.push(frame);
-
-		self.frame_pointer = 0;
 		self.eval_from_label("main")?;
-
 		Ok(())
 	}
 
@@ -66,7 +64,7 @@ impl Evaluator {
 	//
 	//
 	fn get_next_frame(&mut self) -> &mut StackFrame {
-		if self.frames.len() <= self.frame_pointer {
+		if self.frames.len() <= (self.frame_pointer + 1) {
 			self.frames.push(StackFrame::new());
 		}
 
@@ -87,9 +85,6 @@ impl Evaluator {
 
 					let result = left + right;
 					self.push(StackItem::Integer(result));
-				},
-				Instruction::Alloca => {
-					unimplemented!()
 				},
 				Instruction::And => {
 					let left = self.pop_integer()?;
@@ -169,18 +164,26 @@ impl Evaluator {
 								match input.parse::<i32>() {
 									Ok(value) => self.push(StackItem::Integer(value)),
 									Err(_) => {
-										// parse error
-										unimplemented!()
+										return Err(BytecodeError::new(ErrorType::RuntimeError,
+											ErrorCode::E0400,
+											Location::end(),
+											format!("Unable to convert value in integer: {}",
+												input)));
 									}
 								}
 							} else {
-								// zero-length input
-								unimplemented!()
+								return Err(BytecodeError::new(ErrorType::RuntimeError,
+									ErrorCode::E0401,
+									Location::end(),
+									"No input given".to_string()));
 							}
 						}
-						Err(_error) => {
+						Err(error) => {
 							// read failed
-							unimplemented!()
+							return Err(BytecodeError::new(ErrorType::RuntimeError,
+								ErrorCode::E0402,
+								Location::end(),
+								format!("{}", error)));
 						}
 					}
 				},
@@ -342,7 +345,12 @@ impl Evaluator {
 				Instruction::Pushret => {
 					match &self.return_register {
 						Some(item) => self.push(item.clone()),
-						None => unimplemented!()
+						None => {
+							return Err(BytecodeError::new(ErrorType::LookupError,
+								ErrorCode::E0206,
+								Location::end(),
+								"PUSHRET cannot be used with an empty return register".to_string()));
+						}
 					}
 				},
 				Instruction::Rem => {
@@ -368,10 +376,13 @@ impl Evaluator {
 
 					match symbol {
 						Symbol::Args => {
-							unimplemented!()
+							return Err(BytecodeError::new(ErrorType::LookupError,
+								ErrorCode::E0205,
+								Location::end(),
+								"STORE cannot be used to manipulate the ARGS array".to_string()));
 						},
 						Symbol::Locals => {
-							self.get_frame().store_local(0, item);
+							self.get_frame().store_local(0, item)?;
 						},
 					}
 				},
@@ -382,10 +393,13 @@ impl Evaluator {
 
 					match symbol {
 						Symbol::Args => {
-							unimplemented!()
+							return Err(BytecodeError::new(ErrorType::LookupError,
+								ErrorCode::E0205,
+								Location::end(),
+								"STOREIDX cannot be used to manipulate the ARGS array".to_string()));
 						},
 						Symbol::Locals => {
-							self.get_frame().store_local(index, item);
+							self.get_frame().store_local(index, item)?;
 						},
 					}
 				},
@@ -432,7 +446,10 @@ impl Evaluator {
 		match self.stack.pop() {
 			Some(item) => Ok(item),
 			None => {
-				unimplemented!()
+				Err(BytecodeError::new(ErrorType::LookupError,
+					ErrorCode::E0207,
+					Location::end(),
+					"Unable to pop from the stack: stack is empty".to_string()))
 			}
 		}
 	}
@@ -441,10 +458,16 @@ impl Evaluator {
 	//
 	//
 	fn pop_integer(&mut self) -> Result<i32, BytecodeError> {
-		match self.pop()? {
+		let item = self.pop()?;
+
+		match item {
 			StackItem::Integer(val) => Ok(val),
 			_ => {
-				unimplemented!()
+				Err(BytecodeError::new(ErrorType::LookupError,
+					ErrorCode::E0208,
+					Location::end(),
+					format!("Expected Integer on the stack, found: {:?}",
+						item)))
 			}
 		}
 	}
@@ -453,10 +476,16 @@ impl Evaluator {
 	//
 	//
 	fn pop_symbol(&mut self) -> Result<Symbol, BytecodeError> {
-		match self.pop()? {
+		let item = self.pop()?;
+
+		match item {
 			StackItem::Symbol(val) => Ok(val),
 			_ => {
-				unimplemented!()
+				Err(BytecodeError::new(ErrorType::LookupError,
+					ErrorCode::E0209,
+					Location::end(),
+					format!("Expected Symbol on the stack, found: {:?}",
+						item)))
 			}
 		}
 	}
@@ -465,10 +494,16 @@ impl Evaluator {
 	//
 	//
 	fn pop_address(&mut self) -> Result<usize, BytecodeError> {
-		match self.pop()? {
+		let item = self.pop()?;
+
+		match item {
 			StackItem::Address(val) => Ok(val),
 			_ => {
-				unimplemented!()
+				Err(BytecodeError::new(ErrorType::LookupError,
+					ErrorCode::E0210,
+					Location::end(),
+					format!("Expected Address on the stack, found: {:?}",
+						item)))
 			}
 		}
 	}

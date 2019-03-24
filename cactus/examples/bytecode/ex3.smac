@@ -1,0 +1,6 @@
+main:
+  PUSH "World" ;
+  PUSH "Hello," ;
+  OUT ;
+  OUTLN ;
+  HALT ;

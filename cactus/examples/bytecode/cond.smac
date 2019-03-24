@@ -1,0 +1,21 @@
+main:
+  PUSH 100;
+  PUSH 20;
+  LEQ;
+  &notzero;
+  JMPNZ;
+
+ifzero:
+  PUSH "ZERO";
+  OUTLN;
+  &exit;
+  JMP;
+
+notzero:
+  PUSH "NOT ZERO";
+  OUTLN;
+  &exit;
+  JMP;
+
+exit:
+  HALT;

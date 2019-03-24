@@ -1,0 +1,11 @@
+ret:
+   PUSH 1;
+   MOVRET;
+   RETURN;
+
+main:
+   &ret;
+   SUBCALL;
+   PUSHRET;
+   OUTLN;
+   HALT;

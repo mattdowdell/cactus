@@ -44,7 +44,9 @@ fn main() {
 	let interpreter = Interpreter::new();
 
 	match interpreter.interpret(&contents) {
-		Ok(_) => {},
+		Ok(_) => {
+			println!("Evaluation completed without errors");
+		},
 		Err(errors) => {
 			for error in errors.iter() {
 				eprintln!("{}", error);

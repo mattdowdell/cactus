@@ -1,0 +1,15 @@
+x:
+  NOP;
+
+main:
+  PUSH LOCALS;
+  PUSH 10;
+  STORE;
+
+  PUSH "x = ";
+  OUT;
+
+  PUSH LOCALS;
+  LOAD;
+  OUTLN;
+  HALT;

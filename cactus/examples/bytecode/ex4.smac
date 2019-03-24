@@ -1,0 +1,57 @@
+-- simple loop example
+-- code is as if basic blocks were mapped without optimization
+
+  -- main entry basic block (entry to the control flow graph)
+main:
+
+-- allocate space for counter
+counter:
+  NOP ;
+
+  -- initialize counter to 4
+  PUSH LOCALS ;
+  PUSH 4   ;
+  STORE ;
+
+  -- jump to loopheader
+  &loopheader ;
+  JMP ;
+
+  -- loopheader basic block
+loopheader:
+  PUSH 0 ;
+  PUSH LOCALS ;
+  LOAD ;
+  EQ ;
+  &loopbody ;
+  JMPNZ ;
+
+  &loopexit ;
+  JMP ;
+
+  -- loop body basic block
+loopbody:
+  PUSH LOCALS ;
+  LOAD ;
+  OUTLN ;
+  &loopepilog ;
+  JMP ;
+
+  -- loop epilog basic block
+loopepilog:
+  PUSH 1 ;
+  PUSH LOCALS ;
+  LOAD ;
+  MINUS ;
+
+  PUSH LOCALS ;
+  SWAP ;
+  STORE ;
+
+  &loopheader ;
+  JMP ;
+
+  -- loop exit basic block
+  -- also main exit basic block, control flow graph exit
+loopexit:
+  HALT ;

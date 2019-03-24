@@ -1,0 +1,44 @@
+{-
+  Basic subroutine example, implementing the following pseudo code:
+
+  int add(int x, int y) {
+    int result = x + y;
+    return result;
+  }
+
+  print ( add(10,20) );
+
+  The resulting coding could be optimized but the point is to show how
+  to use locals and return values.
+-}
+
+add:
+   PUSH ARGS; -- &x = ARGS[0]
+   LOAD;      -- load x
+   PUSH ARGS;
+   PUSH 1;    -- &y = ARGS[1]
+   LOADIDX ;  -- load y
+   ADD ;      -- x + y
+
+   -- now store result
+   PUSH LOCALS; -- &result = LOCALS[0]
+   SWAP;
+   STORE; -- result = a + b
+
+   PUSH LOCALS;
+   LOAD;
+   MOVRET;
+   RETURN;
+
+--   add(10,20);
+main:
+
+   PUSH 10;
+   PUSHARG;
+   PUSH 20;
+   PUSHARG;
+   &add;
+   SUBCALL;
+   PUSHRET;
+   OUTLN;
+   HALT;
