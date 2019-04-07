@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! A representation of a location relative to the input source code.
 
 /// To be used to store a location in an input string.
 ///
