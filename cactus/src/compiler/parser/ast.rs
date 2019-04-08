@@ -118,9 +118,7 @@ impl Function {
 		ret
 	}
 
-	///
-	///
-	///
+	/// Get the name of the function.
 	pub fn get_name(&self) -> String {
 		self.identifier.name.clone()
 	}
@@ -156,32 +154,27 @@ impl Identifier {
 		}
 	}
 
-	///
-	///
+	/// Get the name of the identifier.
 	pub fn get_name(&self) -> String {
 		self.name.clone()
 	}
 
-	///
-	///
+	/// Set the symbol type for the identifier.
 	pub fn set_symbol_type(&mut self, symbol_type: SymbolType) {
 		self.symbol_type = symbol_type;
 	}
 
-	///
-	///
+	/// Get the symbol type for the identifier.
 	pub fn get_symbol_type(&self) -> SymbolType {
 		self.symbol_type
 	}
 
-	///
-	///
+	/// Set the offset for the identifier.
 	pub fn set_offset(&mut self, offset: usize) {
 		self.offset = offset
 	}
 
-	///
-	///
+	/// Get the offset for the identifier.
 	pub fn get_offset(&self) -> usize {
 		self.offset
 	}
@@ -218,16 +211,12 @@ impl Argument {
 		ret
 	}
 
-	///
-	///
-	///
+	/// Get the name of the argument.
 	pub fn get_name(&self) -> String {
 		self.identifier.name.clone()
 	}
 
-	///
-	///
-	///
+	/// Get the type hint of the argument.
 	pub fn get_type_hint(&self) -> TypeHint {
 		self.type_hint
 	}
@@ -387,23 +376,17 @@ impl Let {
 		ret
 	}
 
-	///
-	///
-	///
+	/// Get the name of the identifier in the let statement.
 	pub fn get_name(&self) -> String {
 		self.identifier.name.clone()
 	}
 
-	///
-	///
-	///
+	/// Get the type hint for the let statement.
 	pub fn get_type_hint(&self) -> TypeHint {
 		self.type_hint
 	}
 
-	///
-	///
-	///
+	/// Set the offset for the identifier in the let statement.
 	pub fn set_offset(&mut self, offset: usize) {
 		self.identifier.set_offset(offset);
 	}
@@ -434,9 +417,7 @@ impl Loop {
 		}
 	}
 
-	///
-	///
-	///
+	/// Get the block id for the loop body.
 	pub fn get_id(&self) -> usize {
 		self.body.id
 	}
@@ -468,6 +449,7 @@ impl If {
 		}
 	}
 
+	/// Get the block if for the body of the first branch in the if statement.
 	pub fn get_id(&self) -> usize {
 		self.branches[0].get_id()
 	}
@@ -499,8 +481,7 @@ impl Branch {
 		}
 	}
 
-	///
-	///
+	/// Get the block id of the branch's consequence.
 	pub fn get_id(&self) -> usize {
 		self.consequence.id
 	}
@@ -512,9 +493,7 @@ impl TAstNode for Branch {
 	}
 }
 
-/// TODO: document
-///
-///
+/// Store information for loop control statements (break and continue).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LoopControl {
 	pub loop_id: usize,
@@ -562,6 +541,7 @@ pub enum Expression {
 }
 
 impl Expression {
+	/// Test if the expression uses an assignment operator.
 	pub fn is_assignment(&self) -> bool {
 		match self {
 			Expression::Infix(infix) => infix.is_assignment(),
@@ -605,6 +585,7 @@ impl Literal {
 		}
 	}
 
+	/// Create a literal from a token.
 	pub fn new_from_token(token: Token) -> Result<Literal, CompilationError> {
 		match token.token_type {
 			TokenType::Integer => {
@@ -644,9 +625,7 @@ impl TAstNode for Literal {
 	}
 }
 
-/// TODO: Document
-///
-///
+/// The possible literal values.
 #[derive(Clone, Debug, PartialEq)]
 pub enum LiteralValue {
 	Int32(String),
@@ -772,9 +751,7 @@ impl Call {
 		}
 	}
 
-	///
-	///
-	///
+	/// Get the name of the function being called.
 	pub fn get_name(&self) -> String {
 		self.identifier.name.clone()
 	}
@@ -917,9 +894,9 @@ impl Operator {
 		}
 	}
 
+	/// Expand an assignment expression with side-effects into its non-side-effect equivalent.
 	///
-	///
-	///
+	/// For example, `x += 5` becomes `x = x + 5`.
 	pub fn expand_assignment(&self) -> Result<Operator, CompilationError> {
 		match self {
 			Operator::PlusAssign          => Ok(Operator::Plus),

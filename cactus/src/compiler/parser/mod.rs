@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The parser for Cactus.
 
 mod ast;
 mod parser;
