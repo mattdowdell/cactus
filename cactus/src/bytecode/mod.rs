@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The public interface of the bytecode interpreter.
 
 mod error;
 mod lexer;

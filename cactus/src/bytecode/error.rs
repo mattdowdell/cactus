@@ -1,12 +1,11 @@
-//!
-//!
-//!
+//! An standard error representation for the bytecode interpreter.
 
 use std::error;
 use std::fmt;
 
 use crate::location::Location;
 
+/// A representation of an error found during bytecode interpreting.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BytecodeError {
 	error_type: ErrorType,
@@ -16,9 +15,7 @@ pub struct BytecodeError {
 }
 
 impl BytecodeError {
-	///
-	///
-	///
+	/// Create a new instance of `BytecodeError`.
 	pub fn new(error_type: ErrorType, error_code: ErrorCode, location: Location, message: String) -> BytecodeError {
 		BytecodeError {
 			error_type: error_type,
@@ -52,6 +49,7 @@ impl fmt::Display for BytecodeError {
 	}
 }
 
+/// The possible error types.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorType {
 	SyntaxError,
@@ -69,6 +67,12 @@ impl fmt::Display for ErrorType {
 	}
 }
 
+/// The possible error codes.
+///
+/// The error codes for each type are as follows:
+/// - 0000-0199: Syntax error
+/// - 0200-0399: Lookup error
+/// - 0400-0599: Runtime error
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorCode {
 	// syntax errors
