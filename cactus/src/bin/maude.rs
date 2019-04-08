@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! A CLI for the bytecode interpreter.
 
 #[macro_use]
 extern crate clap;

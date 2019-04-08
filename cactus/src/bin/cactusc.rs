@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! A CLI for the Cactus compiler.
 
 #[macro_use]
 extern crate clap;
