@@ -1,15 +1,11 @@
-//!
-//!
-//!
+//! Data structures and functions to use during type checking.
 
 use crate::location::Location;
 use crate::compiler::error::{CompilationError, ErrorCode, type_error, internal_error};
 use crate::compiler::parser::{Function, TypeHint, Operator};
 
 
-///
-///
-///
+/// A representation of a function signature.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionSignature {
 	arguments: Vec<TypeHint>,
@@ -17,9 +13,7 @@ pub struct FunctionSignature {
 }
 
 impl FunctionSignature {
-	///
-	///
-	///
+	/// Create a new instance of `FunctionSignature`.
 	pub fn new(arguments: Vec<TypeHint>, return_type: TypeHint) -> FunctionSignature {
 		FunctionSignature {
 			arguments: arguments,
@@ -27,9 +21,7 @@ impl FunctionSignature {
 		}
 	}
 
-	///
-	///
-	///
+	/// Create a new instance of `FunctionSignature` from an AST function node.
 	pub fn new_from_function(function: Function) -> FunctionSignature {
 		let mut arg_types: Vec<TypeHint> = Vec::new();
 
@@ -40,24 +32,20 @@ impl FunctionSignature {
 		FunctionSignature::new(arg_types, function.return_type)
 	}
 
-	///
-	///
-	///
+	/// Getter for the function's arguments.
 	pub fn args(&self) -> Vec<TypeHint> {
 		self.arguments.clone()
 	}
 
-	///
-	///
-	///
+	/// Getter for the function's return type.
 	pub fn ret_type(&self) -> TypeHint {
 		self.return_type
 	}
 }
 
+/// Check that the given prefix operator is compatible with the given operand.
 ///
-///
-///
+/// If it is compatible, the resulting type of the operation will be returned.
 pub fn check_prefix_operator(operator: Operator, right: TypeHint, location: Location) -> Result<TypeHint, CompilationError> {
 	match operator {
 		Operator::Not => {
@@ -115,9 +103,9 @@ pub fn check_prefix_operator(operator: Operator, right: TypeHint, location: Loca
 	}
 }
 
+/// Check that the given infix operator is compatible with the given operands.
 ///
-///
-///
+/// If it is compatible, the resulting type of the operation will be returned.
 pub fn check_infix_operator(operator: Operator, left: TypeHint, location: Location) -> Result<TypeHint, CompilationError> {
 	match operator {
 		Operator::Plus

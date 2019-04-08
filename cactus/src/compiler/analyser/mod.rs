@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The Cactus semantic analyser and supporting constructs.
 
 pub mod analyser;
 mod symbol_table;

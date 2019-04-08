@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The semantic analyser for Cactus.
 
 use std::collections::{HashMap, VecDeque};
 use std::iter::FromIterator;
@@ -12,9 +10,7 @@ use super::symbol_table::SymbolTable;
 use super::typing::{FunctionSignature, check_prefix_operator, check_infix_operator};
 
 
-///
-///
-///
+/// A representation of the semantic analayser.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Analyser {
 	symbol_table: SymbolTable,
@@ -26,9 +22,7 @@ pub struct Analyser {
 }
 
 impl Analyser {
-	///
-	///
-	///
+	/// Create a new instance of `Analyser`.
 	pub fn new() -> Analyser {
 		Analyser {
 			symbol_table: SymbolTable::new(0),
@@ -40,9 +34,7 @@ impl Analyser {
 		}
 	}
 
-	///
-	///
-	///
+	/// Perform semantic analysis on the given AST.
 	pub fn analyse_ast(&mut self, ast: &mut Ast) -> Result<(), Vec<CompilationError>> {
 		for module in ast.modules.iter_mut() {
 			self.analyse_module(module);
@@ -55,19 +47,15 @@ impl Analyser {
 		}
 	}
 
-	///
-	///
-	///
-	pub fn analyse_module(&mut self, module: &mut Module) {
+	// Analyse a Cactus module.
+	fn analyse_module(&mut self, module: &mut Module) {
 		for definition in module.definitions.iter_mut() {
 			self.analyse_definition(definition);
 		}
 	}
 
-	///
-	///
-	///
-	pub fn analyse_definition(&mut self, definition: &mut Definition) {
+	// Analyse a Cactus definition.
+	fn analyse_definition(&mut self, definition: &mut Definition) {
 		match definition {
 			Definition::Function(ref mut function) => {
 				self.analyse_function(function);
@@ -75,10 +63,10 @@ impl Analyser {
 		}
 	}
 
-	///
-	///
-	///
-	pub fn analyse_function(&mut self, function: &mut Function) {
+	// Analyse a Cactus function.
+	//
+	//
+	fn analyse_function(&mut self, function: &mut Function) {
 		let name = function.get_name();
 		let signature = FunctionSignature::new_from_function(function.clone());
 
@@ -129,18 +117,14 @@ impl Analyser {
 		self.symbol_path.pop();
 	}
 
-	///
-	///
-	///
+	// Analyse a Cactus block.
 	fn analyse_block(&mut self, block: &mut Block, loop_id: Option<usize>) {
 		for statement in block.statements.iter_mut() {
 			self.analyse_statement(statement, loop_id);
 		}
 	}
 
-	///
-	///
-	///
+	// Analyse a Cactus statement.
 	fn analyse_statement(&mut self, statement: &mut Statement, loop_id: Option<usize>) {
 		match statement {
 			Statement::Let(let_stmt) => {
@@ -274,9 +258,7 @@ impl Analyser {
 		}
 	}
 
-	///
-	///
-	///
+	// Analyse a Cactus expression.
 	fn analyse_expression(&mut self, expression: &mut Expression) -> Result<TypeHint, ()> {
 		match expression {
 			Expression::Literal(literal) => {

@@ -1,6 +1,6 @@
+//! The symbol table for Cactus.
 //!
-//!
-//!
+//! the symbol table is used to check that variables are defined before they are used.
 
 use std::collections::VecDeque;
 
@@ -9,9 +9,7 @@ use crate::compiler::error::{CompilationError, ErrorCode, lookup_error, internal
 use crate::compiler::parser::{Argument, Identifier, TypeHint, Let, TAstNode};
 
 
-///
-///
-///
+/// A representation of the symbol table.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
 	items: Vec<SymbolItem>,
@@ -20,9 +18,7 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
-	///
-	///
-	///
+	/// Create a new instance of `SymbolTable`.
 	pub fn new(local_offset: usize) -> SymbolTable {
 		SymbolTable {
 			items: Vec::new(),
@@ -31,9 +27,7 @@ impl SymbolTable {
 		}
 	}
 
-	//
-	//
-	//
+	// Test if an item exists in the current symbol table.
 	fn contains(&self, name: String) -> bool {
 		for item in self.items.iter() {
 			match item {
@@ -50,9 +44,7 @@ impl SymbolTable {
 		false
 	}
 
-	///
-	///
-	///
+	/// Create a new sub-table in the current symbol table.
 	pub fn new_sub_table(&mut self, inherit_offset: bool, path: VecDeque<usize>) -> Result<usize, CompilationError> {
 		if path.len() > 0 {
 			let mut sub_path = path.clone();
@@ -80,8 +72,6 @@ impl SymbolTable {
 	}
 
 	/// Add an argument to the symbol table.
-	///
-	///
 	pub fn push_argument(&mut self, argument: Argument, path: VecDeque<usize>) -> Result<usize, CompilationError> {
 		if path.len() > 0 {
 			let mut sub_path = path.clone();
@@ -117,9 +107,7 @@ impl SymbolTable {
 		}
 	}
 
-	/// Add an argument to the symbol table.
-	///
-	///
+	/// Add a local variable to the symbol table.
 	pub fn push_local(&mut self, let_stmt: Let, path: VecDeque<usize>) -> Result<usize, CompilationError> {
 		if path.len() > 0 {
 			let mut sub_path = path.clone();
@@ -155,9 +143,7 @@ impl SymbolTable {
 		}
 	}
 
-	///
-	///
-	///
+	/// Lookup a symbol in the symbol table.
 	pub fn lookup_symbol(&self, ident: &mut Identifier, path: VecDeque<usize>) -> Result<TypeHint, CompilationError> {
 		for (index, item) in self.items.iter().enumerate() {
 			match item {
@@ -188,18 +174,14 @@ impl SymbolTable {
 
 }
 
-///
-///
-///
+/// A representation of the possible items in a symbol table.
 #[derive(Clone, Debug, PartialEq)]
 pub enum SymbolItem {
 	Table(SymbolTable),
 	Symbol(Symbol)
 }
 
-///
-///
-///
+/// A representation of a single symbol in the symbol table.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Symbol {
 	name: String,
@@ -209,9 +191,7 @@ pub struct Symbol {
 }
 
 impl Symbol {
-	///
-	///
-	///
+	/// Create a new instance of `Symbol`
 	pub fn new(name: String, symbol_type: SymbolType, type_hint: TypeHint, offset: usize) -> Symbol {
 		Symbol {
 			name: name,
@@ -222,9 +202,7 @@ impl Symbol {
 	}
 }
 
-///
-///
-///
+/// The possible symbol types.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SymbolType {
 	Function,
