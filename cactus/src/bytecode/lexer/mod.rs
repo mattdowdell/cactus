@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The bytecode lexer.
 
 mod lexer;
 mod token;

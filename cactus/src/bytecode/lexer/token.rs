@@ -15,9 +15,7 @@ pub struct Token {
 }
 
 impl Token {
-	///
-	///
-	///
+	/// Create a new token from the given token type.
 	pub fn new_from_type(token_type: TokenType, location: Location) -> Token {
 		Token {
 			token_type: token_type,
@@ -26,9 +24,7 @@ impl Token {
 		}
 	}
 
-	///
-	///
-	///
+	/// Create a new token from the given token type and value.
 	pub fn new_with_value(token_type: TokenType, value: String, location: Location) -> Token {
 		Token {
 			token_type: token_type,
@@ -37,9 +33,10 @@ impl Token {
 		}
 	}
 
+	/// Create a new token from the given identifier.
 	///
-	///
-	///
+	/// This may result in a keyword or identifier token depending on the value of the identifier
+	/// string.
 	pub fn new_from_ident(value: String, location: Location) -> Token {
 		let tt = match value.as_ref() {
 			"ARGS"      => TokenType::Args,
@@ -91,7 +88,7 @@ impl Token {
 		}
 	}
 
-	//
+	/// Test if a token is a comment token.
 	pub fn is_comment(&self) -> bool {
 		match self.token_type {
 			TokenType::InlineComment

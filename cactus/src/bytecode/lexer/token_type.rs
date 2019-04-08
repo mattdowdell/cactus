@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The token types for the bytecode.
 
 use std::fmt;
 
