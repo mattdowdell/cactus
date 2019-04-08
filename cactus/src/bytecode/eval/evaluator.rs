@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The bytecode evaluator.
 
 use std::io;
 use std::io::Write;
@@ -11,9 +9,7 @@ use crate::bytecode::parser::{Module, Instruction, Literal, Symbol};
 
 use super::frame::{StackFrame, StackItem};
 
-///
-///
-///
+/// A representation of the bytecode evaluator.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Evaluator {
 	frames: Vec<StackFrame>,
@@ -27,9 +23,7 @@ pub struct Evaluator {
 }
 
 impl Evaluator {
-	///
-	///
-	///
+	/// Create a new instance of `Evaluator`.
 	pub fn new(module: Module) -> Evaluator {
 		Evaluator {
 			frame_pointer: 0,
@@ -45,24 +39,20 @@ impl Evaluator {
 		}
 	}
 
-	///
-	///
-	///
+	/// Evaluate the given module.
 	pub fn eval(&mut self) -> Result<(), BytecodeError> {
 		self.eval_from_label("main")?;
 		Ok(())
 	}
 
-	//
-	//
-	//
+	// Get the current stack frame.
 	fn get_frame(&mut self) -> &mut StackFrame {
 		&mut self.frames[self.frame_pointer]
 	}
 
+	// Get the next stack frame.
 	//
-	//
-	//
+	// If one does not yet exist, a new one will be created first.
 	fn get_next_frame(&mut self) -> &mut StackFrame {
 		if self.frames.len() <= (self.frame_pointer + 1) {
 			self.frames.push(StackFrame::new());
@@ -71,9 +61,7 @@ impl Evaluator {
 		&mut self.frames[self.frame_pointer + 1]
 	}
 
-	///
-	///
-	///
+	/// Evaluate the module from the given label.
 	fn eval_from_label(&mut self, label: &str) -> Result<(), BytecodeError> {
 		self.instruction_pointer = self.module.lookup_label(label)?;
 
@@ -435,16 +423,12 @@ impl Evaluator {
 		}
 	}
 
-	//
-	//
-	//
+	// Push a value onto the top of the stack.
 	fn push(&mut self, item: StackItem) {
 		self.stack.push(item);
 	}
 
-	//
-	//
-	//
+	// Remove a value from the top of the stack.
 	fn pop(&mut self) -> Result<StackItem, BytecodeError> {
 		match self.stack.pop() {
 			Some(item) => Ok(item),
@@ -457,9 +441,7 @@ impl Evaluator {
 		}
 	}
 
-	//
-	//
-	//
+	// Remove an integer from the top of the stack.
 	fn pop_integer(&mut self) -> Result<i32, BytecodeError> {
 		let item = self.pop()?;
 
@@ -475,9 +457,7 @@ impl Evaluator {
 		}
 	}
 
-	//
-	//
-	//
+	// Remove a symbol from the top of the stack.
 	fn pop_symbol(&mut self) -> Result<Symbol, BytecodeError> {
 		let item = self.pop()?;
 
@@ -493,9 +473,7 @@ impl Evaluator {
 		}
 	}
 
-	//
-	//
-	//
+	// Remove an address from the top of the stack.
 	fn pop_address(&mut self) -> Result<usize, BytecodeError> {
 		let item = self.pop()?;
 

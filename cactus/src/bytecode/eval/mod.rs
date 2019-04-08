@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The bytecode evaluator.
 
 mod evaluator;
 mod frame;

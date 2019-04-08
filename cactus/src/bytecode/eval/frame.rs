@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! A stack frame for the bytecode evaluator.
 
 use std::fmt;
 
@@ -8,9 +6,7 @@ use crate::location::Location;
 use crate::bytecode::error::{BytecodeError, ErrorType, ErrorCode};
 use crate::bytecode::Symbol;
 
-///
-///
-///
+/// A representation of a stack frame.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StackFrame {
 	args: Vec<StackItem>,
@@ -19,9 +15,7 @@ pub struct StackFrame {
 }
 
 impl StackFrame {
-	///
-	///
-	///
+	/// Create a new instance of `StackFrame`.
 	pub fn new() -> StackFrame {
 		StackFrame {
 			args: Vec::new(),
@@ -30,30 +24,24 @@ impl StackFrame {
 		}
 	}
 
-	///
-	///
-	///
+	/// Set the instruction pointer for the frame.
 	pub fn set_instruction_pointer(&mut self, pointer: usize) {
 		self.instruction_pointer = pointer;
 	}
 
-	///
-	///
-	///
+	/// Get the instruction pointer for the frame.
 	pub fn get_instruction_pointer(&mut self) -> usize {
 		self.instruction_pointer
 	}
 
+	/// Add a function argument to the frame.
 	///
-	///
-	///
+	/// This should be called for `PUSHARG` instructions.
 	pub fn push_arg(&mut self, item: StackItem) {
 		self.args.push(item);
 	}
 
-	///
-	///
-	///
+	/// Load the value of an argument from the frame.
 	pub fn load_arg(&mut self, index: usize) -> Result<StackItem, BytecodeError> {
 		match self.args.get(index) {
 			Some(item) => Ok(item.clone()),
@@ -67,9 +55,7 @@ impl StackFrame {
 		}
 	}
 
-	///
-	///
-	///
+	/// Store a local variable in the frame.
 	pub fn store_local(&mut self, index: usize, item: StackItem) -> Result<(), BytecodeError> {
 		if index < self.locals.len() {
 			self.locals[index] = item;
@@ -88,9 +74,7 @@ impl StackFrame {
 		}
 	}
 
-	///
-	///
-	///
+	/// Load the value of a local variable from the frame.
 	pub fn load_local(&mut self, index: usize) -> Result<StackItem, BytecodeError> {
 		match self.locals.get(index) {
 			Some(item) => Ok(item.clone()),
@@ -105,9 +89,7 @@ impl StackFrame {
 	}
 }
 
-///
-///
-///
+/// The possible items that might appear on the stack.
 #[derive(Clone, Debug, PartialEq)]
 pub enum StackItem {
 	Integer(i32),
