@@ -191,7 +191,7 @@ pub struct Symbol {
 }
 
 impl Symbol {
-	/// Create a new instance of `Symbol`
+	/// Create a new instance of `Symbol`.
 	pub fn new(name: String, symbol_type: SymbolType, type_hint: TypeHint, offset: usize) -> Symbol {
 		Symbol {
 			name: name,

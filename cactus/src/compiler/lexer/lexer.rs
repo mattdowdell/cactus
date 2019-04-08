@@ -15,9 +15,7 @@ fn is_whitespace(c: char) -> bool {
 	c == ' ' || c == '\t' || c == '\r' || c == '\n'
 }
 
-///
-///
-///
+/// A representation of the Cactus Lexer.
 pub struct Lexer<'a> {
 	input: Peekable<Chars<'a>>,
 	location: Location,

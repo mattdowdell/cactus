@@ -48,9 +48,7 @@ impl<'a> Parser<'a> {
 
 	}
 
-	//
-	//
-	//
+	// Get the next block id.
 	fn next_block_id(&mut self) -> usize {
 		let ret = self.block_id;
 		self.block_id += 1;

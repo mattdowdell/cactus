@@ -2,7 +2,6 @@
 
 use std::fmt;
 
-
 /// A representation of a token type.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TokenType {
