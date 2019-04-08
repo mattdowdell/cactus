@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The bytecode parser.
 
 use std::iter::Peekable;
 
@@ -9,17 +7,13 @@ use crate::bytecode::error::{BytecodeError, ErrorType, ErrorCode};
 use crate::bytecode::lexer::{Lexer, Token, TokenType};
 use super::ast::{Module, Instruction, Literal, Symbol};
 
-///
-///
-///
+/// A representation of the parser.
 pub struct Parser<'a> {
 	lexer: Peekable<Lexer<'a>>,
 }
 
 impl<'a> Parser<'a> {
-	///
-	///
-	///
+	/// Create a new instance of `Parser`.
 	pub fn new(input: &str) -> Parser {
 		Parser {
 			lexer: Lexer::new(input).peekable(),
@@ -59,9 +53,7 @@ impl<'a> Parser<'a> {
 		}
 	}
 
-	///
-	///
-	///
+	/// Parse the previously given input into an AST.
 	pub fn parse(&mut self) -> Result<Module, Vec<BytecodeError>> {
 		let mut module = Module::new();
 		let mut errors = Vec::new();
@@ -92,9 +84,9 @@ impl<'a> Parser<'a> {
 		}
 	}
 
+	// Parse a bytecode statement.
 	//
-	//
-	//
+	// this is usually an instruction followed by a semicolon, but also includes label definitions.
 	fn parse_statement(&mut self, token: Token) -> Result<Instruction, BytecodeError> {
 		let instr = match token.token_type {
 
@@ -272,4 +264,3 @@ mod test {
 		assert!(parser.parse().is_err());
 	}
 }
-

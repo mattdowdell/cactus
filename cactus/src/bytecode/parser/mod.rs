@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The bytecode parser and AST.
 
 mod ast;
 mod parser;

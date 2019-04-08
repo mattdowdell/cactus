@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! Data structures used for the bytecode AST.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -8,9 +6,9 @@ use std::fmt;
 use crate::location::Location;
 use crate::bytecode::error::{BytecodeError, ErrorType, ErrorCode};
 
+/// A representation of a bytecode module.
 ///
-///
-///
+/// The module is the root AST node in bytecode.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Module {
 	label_map: HashMap<String, usize>,
@@ -18,9 +16,7 @@ pub struct Module {
 }
 
 impl Module {
-	///
-	///
-	///
+	/// Create a new instance of `Module`.
 	pub fn new() -> Module {
 		Module {
 			label_map: HashMap::new(),
@@ -28,9 +24,7 @@ impl Module {
 		}
 	}
 
-	///
-	///
-	///
+	/// Add an instruction to the module.
 	pub fn push_instruction(&mut self, instruction: Instruction) {
 		match instruction.clone() {
 			Instruction::Labeldef(label) => {
@@ -45,9 +39,7 @@ impl Module {
 		self.instructions.push(instruction);
 	}
 
-	///
-	///
-	///
+	/// Find a label in the module and return its index if found.
 	pub fn lookup_label(&self, label: &str) -> Result<usize, BytecodeError> {
 		match self.label_map.get(label) {
 			Some(index) => Ok(*index),
@@ -61,9 +53,7 @@ impl Module {
 		}
 	}
 
-	///
-	///
-	///
+	/// Get an instruction at the given index.
 	pub fn get(&self, index: usize) -> Result<Instruction, BytecodeError> {
 		match self.instructions.get(index) {
 			Some(instr) => Ok(instr.clone()),
@@ -78,9 +68,7 @@ impl Module {
 	}
 }
 
-///
-///
-///
+/// The possible bytecode instructions.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Instruction {
 	Add,
@@ -125,30 +113,22 @@ pub enum Instruction {
 }
 
 impl Instruction {
-	///
-	///
-	///
+	/// Create a new push instruction with a symbol argument.
 	pub fn push_symbol(symbol: Symbol) -> Instruction {
 		Instruction::Push(Literal::Symbol(symbol))
 	}
 
-	///
-	///
-	///
+	/// Create a new push instruction with an integer argument.
 	pub fn push_offset(offset: usize) -> Instruction {
 		Instruction::Push(Literal::Integer(offset.to_string()))
 	}
 
-	///
-	///
-	///
+	/// Create a new push instruction with an integer argument (stored as a string).
 	pub fn push_integer(value: String) -> Instruction {
 		Instruction::Push(Literal::Integer(value))
 	}
 
-	///
-	///
-	///
+	/// Create a new push instruction with a float argument (stored as a string).
 	pub fn push_float(value: String) -> Instruction {
 		Instruction::Push(Literal::Float(value))
 	}
@@ -200,9 +180,7 @@ impl fmt::Display for Instruction {
 	}
 }
 
-///
-///
-///
+/// The possible literals found in the bytecode.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
 	Integer(String),
@@ -222,9 +200,7 @@ impl fmt::Display for Literal {
 	}
 }
 
-///
-///
-///
+/// The possible symbols in the bytecode.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Symbol {
 	Args,
