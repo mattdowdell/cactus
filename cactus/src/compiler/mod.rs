@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The modules for the Cactus compiler.
 
 // public modules
 pub mod compiler;

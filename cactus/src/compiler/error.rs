@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! Error handling for the Cactus compiler.
 
 use std::error;
 use std::fmt;
@@ -8,9 +6,9 @@ use std::fmt;
 use crate::location::Location;
 
 
+/// Create a new syntax error.
 ///
-///
-///
+/// This is typically used during parsing.
 pub fn syntax_error(error_code: ErrorCode, location: Location, message: String) -> CompilationError {
 	CompilationError::new(error_code,
 		ErrorType::SyntaxError,
@@ -18,9 +16,9 @@ pub fn syntax_error(error_code: ErrorCode, location: Location, message: String) 
 		message)
 }
 
+/// Create a new type error.
 ///
-///
-///
+/// This is typically used during semantic analysis.
 pub fn type_error(error_code: ErrorCode, location: Location, message: String) -> CompilationError {
 	CompilationError::new(error_code,
 		ErrorType::TypeError,
@@ -28,9 +26,9 @@ pub fn type_error(error_code: ErrorCode, location: Location, message: String) ->
 		message)
 }
 
+/// Create a new lookup error.
 ///
-///
-///
+/// This is typically used during semantic analysis.
 pub fn lookup_error(error_code: ErrorCode, location: Location, message: String) -> CompilationError {
 	CompilationError::new(error_code,
 		ErrorType::LookupError,
@@ -38,9 +36,10 @@ pub fn lookup_error(error_code: ErrorCode, location: Location, message: String) 
 		message)
 }
 
+/// Create a new internal error.
 ///
-///
-///
+/// This is used when something is not in the expected state which usually indicates an error
+/// somewhere else in the cmpiler.
 pub fn internal_error(error_code: ErrorCode, location: Location, message: String) -> CompilationError {
 	CompilationError::new(error_code,
 		ErrorType::InternalError,
@@ -48,9 +47,13 @@ pub fn internal_error(error_code: ErrorCode, location: Location, message: String
 		message)
 }
 
+/// The possible error codes.
 ///
-///
-///
+/// The error code ranges are as follows:
+/// - 0000-0199: Syntax error
+/// - 0200-0399: Type error
+/// - 0400-0599: Lookup error
+/// - 1000-0999: Internal error
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorCode {
 	// syntax errors
@@ -94,9 +97,7 @@ pub enum ErrorCode {
 
 }
 
-///
-///
-///
+/// The possible types of errors.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ErrorType {
 	SyntaxError,
@@ -119,9 +120,7 @@ impl fmt::Display for ErrorType {
 	}
 }
 
-///
-///
-///
+/// A representation of a compilation error.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CompilationError {
 	error_code: ErrorCode,
@@ -131,9 +130,7 @@ pub struct CompilationError {
 }
 
 impl CompilationError {
-	///
-	///
-	///
+	/// Create a new instance of `CompilationError`.
 	pub fn new(error_code: ErrorCode, error_type: ErrorType, location: Location, message: String) -> CompilationError {
 		CompilationError {
 			error_code: error_code,
