@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The interface for converting the AST to bytecode instructions.
 
 use crate::bytecode::{Instruction, Symbol};
 use crate::compiler::error::CompilationError;
@@ -29,9 +27,10 @@ use crate::compiler::parser::{
 use super::label::{Label, LabelType};
 
 
+/// The interface for converting an AST node to bytecode instructions.
 ///
-///
-///
+/// Almost every AST node should implement this, unless there is not enough information for the
+/// node to convert itself, in which case it should be handled by the parent node.
 pub trait TToBytecode {
 	///
 	///

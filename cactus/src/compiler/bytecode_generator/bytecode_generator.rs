@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The interface for generating bytecode from the AST.
 
 use crate::bytecode::Instruction;
 use crate::compiler::error::CompilationError;
@@ -8,23 +6,17 @@ use crate::compiler::parser::Ast;
 
 use super::ast::TToBytecode;
 
-///
-///
-///
+/// A representation of the byte code generator.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BytecodeGenerator {}
 
 impl BytecodeGenerator {
-	///
-	///
-	///
+	/// Create a new instance of `BytecodeGenerator`.
 	pub fn new() -> BytecodeGenerator {
 		BytecodeGenerator {}
 	}
 
-	///
-	///
-	///
+	/// Convert the given ASt to bytecode instructions.
 	pub fn convert_ast(&self, ast: Ast) -> Result<Vec<Instruction>, Vec<CompilationError>> {
 		ast.to_bytecode()
 	}
@@ -61,4 +53,3 @@ mod test {
 		assert_eq!(res.unwrap(), expected);
 	}
 }
-

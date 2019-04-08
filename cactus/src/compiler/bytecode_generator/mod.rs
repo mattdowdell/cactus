@@ -1,6 +1,4 @@
-//!
-//!
-//!
+//! The interface for generating bytecode from Cactus.
 
 mod ast;
 mod bytecode_generator;

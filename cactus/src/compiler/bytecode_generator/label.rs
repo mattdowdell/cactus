@@ -1,12 +1,8 @@
-//!
-//!
-//!
+//! A helper for creating labels in bytecode.
 
 use std::fmt;
 
-///
-///
-///
+/// A representation of a label in bytecode.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Label {
 	label_type: LabelType,
@@ -14,9 +10,7 @@ pub struct Label {
 }
 
 impl Label {
-	///
-	///
-	///
+	/// Create a new instance of `Label`.
 	pub fn new(label_type: LabelType, block_id: usize) -> Label {
 		Label {
 			label_type: label_type,
@@ -31,9 +25,7 @@ impl fmt::Display for Label {
 	}
 }
 
-///
-///
-///
+/// The possible label types.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LabelType {
 	LoopStart,
