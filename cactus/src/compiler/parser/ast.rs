@@ -325,7 +325,7 @@ impl TAstNode for Block {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
 	Let(Let),
-	Return(Expression),
+	Return(Return),
 	Loop(Loop),
 	If(If),
 	Break(LoopControl),
@@ -393,6 +393,29 @@ impl Let {
 }
 
 impl TAstNode for Let {
+	fn get_location(&self) -> Location {
+		self.location
+	}
+}
+
+// A representation of a return statement within the AST.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Return {
+	pub location: Location,
+	pub value: Expression,
+}
+
+impl Return {
+	/// Create a new instance of `Return`.
+	pub fn new(value: Expression, location: Location) -> Return {
+		Return {
+			location: location,
+			value: value,
+		}
+	}
+}
+
+impl TAstNode for Return {
 	fn get_location(&self) -> Location {
 		self.location
 	}
@@ -740,6 +763,7 @@ impl TAstNode for Prefix {
 pub struct Call {
 	identifier: Identifier,
 	pub arguments: Vec<Expression>,
+	type_hint: TypeHint,
 }
 
 impl Call {
@@ -748,12 +772,23 @@ impl Call {
 		Call {
 			identifier: identifier,
 			arguments: arguments,
+			type_hint: TypeHint::None,
 		}
 	}
 
 	/// Get the name of the function being called.
 	pub fn get_name(&self) -> String {
 		self.identifier.name.clone()
+	}
+
+	/// Get the expected type hint.
+	pub fn get_type_hint(&self) -> TypeHint {
+		self.type_hint
+	}
+
+	/// Set the expected type hint.
+	pub fn set_type_hint(&mut self, type_hint: TypeHint) {
+		self.type_hint = type_hint;
 	}
 }
 

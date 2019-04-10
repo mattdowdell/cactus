@@ -177,6 +177,9 @@ impl<'a> Parser<'a> {
 			TokenType::Jmp       => Ok(Instruction::Jmp),
 			TokenType::Subcall   => Ok(Instruction::Subcall),
 			TokenType::Return    => Ok(Instruction::Return),
+			TokenType::Rshift    => Ok(Instruction::Rshift),
+			TokenType::Lshift    => Ok(Instruction::Lshift),
+			TokenType::Xor       => Ok(Instruction::Xor),
 
 			_ => Err(BytecodeError::new(ErrorType::SyntaxError,
 				ErrorCode::E0007,

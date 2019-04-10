@@ -78,6 +78,9 @@ impl Token {
 			"JMP"       => TokenType::Jmp,
 			"SUBCALL"   => TokenType::Subcall,
 			"RETURN"    => TokenType::Return,
+			"RSHIFT"    => TokenType::Rshift,
+			"LSHIFT"    => TokenType::Lshift,
+			"XOR"       => TokenType::Xor,
 			_ => TokenType::Ident,
 		};
 
@@ -151,7 +154,10 @@ impl fmt::Display for Token {
 			| TokenType::Jmpnz
 			| TokenType::Jmp
 			| TokenType::Subcall
-			| TokenType::Return => write!(f, "{}", self.token_type),
+			| TokenType::Return
+			| TokenType::Rshift
+			| TokenType::Lshift
+			| TokenType::Xor => write!(f, "{}", self.token_type),
 		}
 	}
 }
@@ -245,6 +251,9 @@ mod test {
 			("JMP", TokenType::Jmp),
 			("SUBCALL", TokenType::Subcall),
 			("RETURN", TokenType::Return),
+			("RSHIFT", TokenType::Rshift),
+			("LSHIFT", TokenType::Lshift),
+			("XOR", TokenType::Xor),
 		];
 
 		for (input, expected) in input_expected.iter() {

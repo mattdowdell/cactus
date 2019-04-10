@@ -89,6 +89,7 @@ pub enum Instruction {
 	Leq,
 	Load,
 	Loadidx,
+	Lshift,
 	Lt,
 	Minus,
 	Movret,
@@ -106,10 +107,12 @@ pub enum Instruction {
 	Pushret,
 	Rem,
 	Return,
+	Rshift,
 	Store,
 	Storeidx,
 	Subcall,
 	Swap,
+	Xor,
 }
 
 impl Instruction {
@@ -156,6 +159,7 @@ impl fmt::Display for Instruction {
 			Instruction::Load            => write!(f, "\tLOAD;"),
 			Instruction::Loadidx         => write!(f, "\tLOADIDX;"),
 			Instruction::Lt              => write!(f, "\tLT;"),
+			Instruction::Lshift          => write!(f, "\tLSHIFT;"),
 			Instruction::Minus           => write!(f, "\tMINUS;"),
 			Instruction::Movret          => write!(f, "\tMOVRET;"),
 			Instruction::Mul             => write!(f, "\tMUL;"),
@@ -172,10 +176,12 @@ impl fmt::Display for Instruction {
 			Instruction::Pushret         => write!(f, "\tPUSHRET;"),
 			Instruction::Rem             => write!(f, "\tREM;"),
 			Instruction::Return          => write!(f, "\tRETURN;"),
+			Instruction::Rshift          => write!(f, "\tRSHIFT;"),
 			Instruction::Store           => write!(f, "\tSTORE;"),
 			Instruction::Storeidx        => write!(f, "\tSTOREIDX;"),
 			Instruction::Subcall         => write!(f, "\tSUBCALL;"),
 			Instruction::Swap            => write!(f, "\tSWAP;"),
+			Instruction::Xor             => write!(f, "\tXOR;"),
 		}
 	}
 }

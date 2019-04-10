@@ -114,11 +114,10 @@ pub fn check_infix_operator(operator: Operator, left: TypeHint, location: Locati
 		| Operator::Divide
 		| Operator::Modulo => {
 			match left {
-				// TODO: support floats?
-				TypeHint::Int32 => Ok(left),
+				TypeHint::Int32
+				| TypeHint::Float => Ok(left),
 
-				TypeHint::Float
-				| TypeHint::Bool
+				TypeHint::Bool
 				| TypeHint::None => {
 					Err(type_error(ErrorCode::E0209,
 						location,
@@ -171,11 +170,10 @@ pub fn check_infix_operator(operator: Operator, left: TypeHint, location: Locati
 		| Operator::GreaterThan
 		| Operator::GreaterThanOrEqual => {
 			match left {
-				// TODO: support floats?
-				TypeHint::Int32 => Ok(TypeHint::Bool),
+				TypeHint::Int32
+				| TypeHint::Float => Ok(TypeHint::Bool),
 
-				TypeHint::Float
-				| TypeHint::Bool
+				TypeHint::Bool
 				| TypeHint::None => {
 					Err(type_error(ErrorCode::E0209,
 						location,
@@ -289,27 +287,27 @@ mod test {
 	fn test_check_infix_operator() {
 		let data = vec![
 			(Operator::Plus, TypeHint::Int32, Some(TypeHint::Int32)),
-			(Operator::Plus, TypeHint::Float, None),
+			(Operator::Plus, TypeHint::Float, Some(TypeHint::Float)),
 			(Operator::Plus, TypeHint::Bool, None),
 			(Operator::Plus, TypeHint::None, None),
 
 			(Operator::Minus, TypeHint::Int32, Some(TypeHint::Int32)),
-			(Operator::Minus, TypeHint::Float, None),
+			(Operator::Minus, TypeHint::Float, Some(TypeHint::Float)),
 			(Operator::Minus, TypeHint::Bool, None),
 			(Operator::Minus, TypeHint::None, None),
 
 			(Operator::Multiply, TypeHint::Int32, Some(TypeHint::Int32)),
-			(Operator::Multiply, TypeHint::Float, None),
+			(Operator::Multiply, TypeHint::Float, Some(TypeHint::Float)),
 			(Operator::Multiply, TypeHint::Bool, None),
 			(Operator::Multiply, TypeHint::None, None),
 
 			(Operator::Divide, TypeHint::Int32, Some(TypeHint::Int32)),
-			(Operator::Divide, TypeHint::Float, None),
+			(Operator::Divide, TypeHint::Float, Some(TypeHint::Float)),
 			(Operator::Divide, TypeHint::Bool, None),
 			(Operator::Divide, TypeHint::None, None),
 
 			(Operator::Modulo, TypeHint::Int32, Some(TypeHint::Int32)),
-			(Operator::Modulo, TypeHint::Float, None),
+			(Operator::Modulo, TypeHint::Float, Some(TypeHint::Float)),
 			(Operator::Modulo, TypeHint::Bool, None),
 			(Operator::Modulo, TypeHint::None, None),
 
@@ -349,22 +347,22 @@ mod test {
 			(Operator::NotEqual, TypeHint::None, None),
 
 			(Operator::LessThan, TypeHint::Int32, Some(TypeHint::Bool)),
-			(Operator::LessThan, TypeHint::Float, None),
+			(Operator::LessThan, TypeHint::Float, Some(TypeHint::Bool)),
 			(Operator::LessThan, TypeHint::Bool, None),
 			(Operator::LessThan, TypeHint::None, None),
 
 			(Operator::LessThanOrEqual, TypeHint::Int32, Some(TypeHint::Bool)),
-			(Operator::LessThanOrEqual, TypeHint::Float, None),
+			(Operator::LessThanOrEqual, TypeHint::Float, Some(TypeHint::Bool)),
 			(Operator::LessThanOrEqual, TypeHint::Bool, None),
 			(Operator::LessThanOrEqual, TypeHint::None, None),
 
 			(Operator::GreaterThan, TypeHint::Int32, Some(TypeHint::Bool)),
-			(Operator::GreaterThan, TypeHint::Float, None),
+			(Operator::GreaterThan, TypeHint::Float, Some(TypeHint::Bool)),
 			(Operator::GreaterThan, TypeHint::Bool, None),
 			(Operator::GreaterThan, TypeHint::None, None),
 
 			(Operator::GreaterThanOrEqual, TypeHint::Int32, Some(TypeHint::Bool)),
-			(Operator::GreaterThanOrEqual, TypeHint::Float, None),
+			(Operator::GreaterThanOrEqual, TypeHint::Float, Some(TypeHint::Bool)),
 			(Operator::GreaterThanOrEqual, TypeHint::Bool, None),
 			(Operator::GreaterThanOrEqual, TypeHint::None, None),
 

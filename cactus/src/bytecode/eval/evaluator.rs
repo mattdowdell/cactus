@@ -242,6 +242,13 @@ impl Evaluator {
 						self.push(StackItem::Integer(1));
 					}
 				},
+				Instruction::Lshift => {
+					let left = self.pop_integer()?;
+					let right = self.pop_integer()?;
+
+					let result = left << right;
+					self.push(StackItem::Integer(result));
+				},
 				Instruction::Minus => {
 					let left = self.pop_integer()?;
 					let right = self.pop_integer()?;
@@ -361,6 +368,13 @@ impl Evaluator {
 
 					continue;
 				},
+				Instruction::Rshift => {
+					let left = self.pop_integer()?;
+					let right = self.pop_integer()?;
+
+					let result = left >> right;
+					self.push(StackItem::Integer(result));
+				},
 				Instruction::Store => {
 					let item = self.pop()?;
 					let symbol = self.pop_symbol()?;
@@ -416,6 +430,13 @@ impl Evaluator {
 
 					self.push(left);
 					self.push(right);
+				},
+				Instruction::Xor => {
+					let left = self.pop_integer()?;
+					let right = self.pop_integer()?;
+
+					let result = left ^ right;
+					self.push(StackItem::Integer(result));
 				},
 			}
 
@@ -650,100 +671,28 @@ mod test {
 		assert_eq!(eval.stack, expected);
 	}
 
-/*
-	#[test]
-	fn test_store() {
-		evaluate_file!(eval, "store.smac");
-		let expected_stack = vec![];
-		let expected_locations = hashmap!{
-			0x0 => StackItem::Integer(0),
-		};
-
-		assert_eq!(eval.stack, expected_stack);
-		assert_eq!(eval.locations, expected_locations);
-	}
-
-	#[test]
-	fn test_store_args() {
-		evaluate_file!(eval, "store_args.smac");
-		let expected = vec![StackItem::Integer(0)];
-
-		assert!(eval.stack.is_empty());
-		assert_eq!(eval.cur_frame.args, expected);
-	}
-
-	#[test]
-	fn test_store_args_twice() {
-		evaluate_file!(eval, "store_args_twice.smac");
-		let expected = vec![StackItem::Integer(0)];
-
-		assert!(eval.stack.is_empty());
-		assert_eq!(eval.cur_frame.args, expected);
-	}
-
 	#[test]
 	fn test_store_locals() {
-		evaluate_file!(eval, "store_locals.smac");
+		let mut eval = evaluate_file!("store_locals.smac");
 		let expected = vec![StackItem::Integer(0)];
 
 		assert!(eval.stack.is_empty());
-		assert_eq!(eval.cur_frame.locals, expected);
+		assert_eq!(eval.get_frame().locals, expected);
 	}
 
 	#[test]
 	fn test_store_locals_twice() {
-		evaluate_file!(eval, "store_locals_twice.smac");
+		let mut eval = evaluate_file!("store_locals_twice.smac");
 		let expected = vec![StackItem::Integer(0)];
 
 		assert!(eval.stack.is_empty());
-		assert_eq!(eval.cur_frame.locals, expected);
+		assert_eq!(eval.get_frame().locals, expected);
 	}
+/*
+	// the below are tests copied from the original interpreter
+	// however, restricting where data can be loaded and stored to locals and args
+	// means that many of these no longer work
 
-	#[test]
-	fn test_storeidx() {
-		evaluate_file!(eval, "storeidx.smac");
-		let expected = vec![StackItem::Integer(3)];
-
-		assert_eq!(eval.stack, expected);
-	}
-
-	#[test]
-	fn test_storeidx_non_symbol() {
-		evaluate_file_fail!(exc, "error_e2015_1.smac");
-
-		assert_eq!(exc.header(), "ERROR (E2015) found on line: 5, column: 2");
-		assert_eq!(exc.footer(), "A symbol was requested from the stack but found: 0x5");
-	}
-
-	#[test]
-	fn test_load() {
-		evaluate_file!(eval, "load.smac");
-		let expected_stack = vec![StackItem::Integer(0)];
-		let expected_locations = hashmap!{
-			0x0 => StackItem::Integer(0),
-		};
-
-		assert_eq!(eval.stack, expected_stack);
-		assert_eq!(eval.locations, expected_locations);
-	}
-
-	#[test]
-	fn test_load_args() {
-		evaluate_file!(eval, "load_args.smac");
-		let expected_stack = vec![StackItem::Integer(0)];
-		let expected_args = vec![StackItem::Integer(0)];
-
-		assert_eq!(eval.stack, expected_stack);
-		assert_eq!(eval.cur_frame.args, expected_args);
-	}
-
-	#[test]
-	fn test_load_args_fail() {
-		evaluate_file_fail!(exc, "load_args_fail.smac");
-
-		assert_eq!(exc.header(), "ERROR (E2013) found on line: 3, column: 2");
-		assert_eq!(exc.footer(), "ARGS array does not have enough elements to perform this operation - Requested element: 1, array has 0 elements");
-	}
 
 	#[test]
 	fn test_load_locals() {

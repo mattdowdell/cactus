@@ -151,22 +151,20 @@ impl Analyser {
 					}
 				}
 			},
-			Statement::Return(ref mut expr) => {
+			Statement::Return(ref mut ret_stmt) => {
 				self.has_returned = true;
 
 				if self.cur_ret_type == TypeHint::None {
 					let error = type_error(ErrorCode::E0201,
-						// TODO: give return it's own location
-						expr.get_location(),
+						ret_stmt.get_location(),
 						"A value was returned from a function with no return type".to_string());
 					self.errors.push(error);
 				} else {
-					match self.analyse_expression(expr) {
+					match self.analyse_expression(&mut ret_stmt.value) {
 						Ok(type_hint) => {
 							if type_hint != self.cur_ret_type {
 								self.errors.push(type_error(ErrorCode::E0206,
-									// TODO: give return it's own location
-									expr.get_location(),
+									ret_stmt.get_location(),
 									format!("Unexpected type for return expression. Expected: {}. Found: {}",
 										self.cur_ret_type,
 										type_hint)));
@@ -403,6 +401,7 @@ impl Analyser {
 						}
 					}
 
+					call.set_type_hint(signature.ret_type());
 					Ok(signature.ret_type())
 				} else {
 					let error = lookup_error(ErrorCode::E0400,

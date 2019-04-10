@@ -9,9 +9,9 @@ use crate::bytecode::Symbol;
 /// A representation of a stack frame.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StackFrame {
-	args: Vec<StackItem>,
-	locals: Vec<StackItem>,
-	instruction_pointer: usize,
+	pub args: Vec<StackItem>,
+	pub locals: Vec<StackItem>,
+	pub instruction_pointer: usize,
 }
 
 impl StackFrame {

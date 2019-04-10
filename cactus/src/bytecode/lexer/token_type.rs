@@ -61,6 +61,9 @@ pub enum TokenType {
 	Jmp,
 	Subcall,
 	Return,
+	Lshift,
+	Rshift,
+	Xor,
 }
 
 impl fmt::Display for TokenType {
@@ -117,6 +120,10 @@ impl fmt::Display for TokenType {
 			TokenType::Jmp       => write!(f, "JMP"),
 			TokenType::Subcall   => write!(f, "SUBCALL"),
 			TokenType::Return    => write!(f, "RETURN"),
+			TokenType::Lshift    => write!(f, "LSHIFT"),
+			TokenType::Rshift    => write!(f, "RSHIFT"),
+			TokenType::Xor       => write!(f, "XOR"),
+
 		}
 	}
 }

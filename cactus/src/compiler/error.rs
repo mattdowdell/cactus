@@ -82,7 +82,7 @@ pub enum ErrorCode {
 	E0401, // redefined function
 	E0402, // redefined argument
 	E0403, // redefined local
-	E0404, // unudefined local/argument
+	E0404, // undefined local/argument
 
 	// internal errors
 	E1000,
@@ -94,6 +94,11 @@ pub enum ErrorCode {
 	E1006,
 	E1007, // non prefix operator given to check_prefix_operator
 	E1008, // non infix operator given to check_infix_operator
+	E1009, // non-identifier for assignment lhs during codegen
+	E1010, // non-symbol (arg/local) for assignment lhs during codegen
+	E1011, // complex assignment operator found during codegen
+	E1012, // convert assignment operator to bytecode directly - should be handled by infix
+	E1013, // non-symbol ident cannot be directly converted to bytecode
 
 }
 

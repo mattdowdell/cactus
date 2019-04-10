@@ -1,9 +1,11 @@
 //! The interface for converting the AST to bytecode instructions.
 
 use crate::bytecode::{Instruction, Symbol};
-use crate::compiler::error::CompilationError;
+use crate::location::Location;
+use crate::compiler::error::{CompilationError, ErrorCode, internal_error};
 use crate::compiler::analyser::SymbolType;
 use crate::compiler::parser::{
+	TAstNode,
 	Ast,
 	Module,
 	Definition,
@@ -11,6 +13,7 @@ use crate::compiler::parser::{
 	Block,
 	Statement,
 	Let,
+	Return,
 	If,
 	Loop,
 	Expression,
@@ -157,16 +160,10 @@ impl TToBytecode for Block {
 impl TToBytecode for Statement {
 	fn to_bytecode(&self) -> Result<Vec<Instruction>, Vec<CompilationError>> {
 		match self {
-			Statement::Let(let_stmt)   => let_stmt.to_bytecode(),
-			Statement::If(if_stmt)     => if_stmt.to_bytecode(),
-			Statement::Loop(loop_stmt) => loop_stmt.to_bytecode(),
-			Statement::Return(expr) => {
-				let mut instructions = expr.to_bytecode()?;
-				instructions.push(Instruction::Movret);
-				instructions.push(Instruction::Return);
-
-				Ok(instructions)
-			},
+			Statement::Let(let_stmt)    => let_stmt.to_bytecode(),
+			Statement::If(if_stmt)      => if_stmt.to_bytecode(),
+			Statement::Loop(loop_stmt)  => loop_stmt.to_bytecode(),
+			Statement::Return(ret_stmt) => ret_stmt.to_bytecode(),
 			Statement::Continue(ctrl) => {
 				let mut instructions = Vec::new();
 				let label = Label::new(LabelType::LoopStart, ctrl.get_loop_id());
@@ -209,6 +206,16 @@ impl TToBytecode for Let {
 		instructions.extend(self.value.to_bytecode()?);
 
 		instructions.push(Instruction::Storeidx);
+
+		Ok(instructions)
+	}
+}
+
+impl TToBytecode for Return {
+	fn to_bytecode(&self) -> Result<Vec<Instruction>, Vec<CompilationError>> {
+		let mut instructions = self.value.to_bytecode()?;
+		instructions.push(Instruction::Movret);
+		instructions.push(Instruction::Return);
 
 		Ok(instructions)
 	}
@@ -300,7 +307,13 @@ impl TToBytecode for Identifier {
 			SymbolType::Argument => Symbol::Args,
 			SymbolType::Local    => Symbol::Locals,
 
-			_ => unimplemented!(),
+			_ => {
+				return Err(vec![
+					internal_error(ErrorCode::E1013,
+						self.get_location(),
+						"Unable to convert non-symbol identifier to bytecode directly".to_string())
+					]);
+			}
 		};
 		let offset = self.get_offset();
 
@@ -319,13 +332,25 @@ impl TToBytecode for Infix {
 		if self.is_assignment() {
 			let ident = match *self.left.clone() {
 				Expression::Identifier(ident) => ident,
-				_ => panic!("TODO: throw internal error"),
+				_ => {
+					return Err(vec![
+						internal_error(ErrorCode::E1009,
+							self.get_location(),
+							"Non-identifier found for LHS in assignment infix expression".to_string())
+					]);
+				},
 			};
 			let symbol = match ident.get_symbol_type() {
 				SymbolType::Argument => Symbol::Args,
 				SymbolType::Local    => Symbol::Locals,
 
-				_ => unimplemented!(),
+				_ => {
+					return Err(vec![
+						internal_error(ErrorCode::E1010,
+							self.get_location(),
+							"Non-symbol found for LHS in assignment infix expression".to_string())
+					]);
+				},
 			};
 			let offset = ident.get_offset();
 
@@ -366,12 +391,9 @@ impl TToBytecode for Call {
 		instructions.push(Instruction::Pushaddr(self.get_name()));
 		instructions.push(Instruction::Subcall);
 
-		// TODO: be smarter about when we do this
-		//       it will cause errors for functions that don't return anything
-		//       maybe supplement the call structure during analysing
-		//       so it knows the return type
-		//       (and if it's used as well)
-		instructions.push(Instruction::Pushret);
+		if self.get_type_hint() != TypeHint::None {
+			instructions.push(Instruction::Pushret);
+		}
 
 		Ok(instructions)
 	}
@@ -382,7 +404,13 @@ impl TToBytecode for Operator {
 		match self {
 			// prefix operators
 			Operator::Not => Ok(vec![Instruction::Not]),
-			Operator::UnaryMinus => unimplemented!(),
+			Operator::UnaryMinus => {
+				// multiply by -1 to invert
+				Ok(vec![
+					Instruction::push_integer("-1".to_string()),
+					Instruction::Mul,
+				])
+			},
 			Operator::BitCompl => Ok(vec![Instruction::Compl]),
 
 			// infix operators
@@ -393,20 +421,48 @@ impl TToBytecode for Operator {
 			Operator::Modulo             => Ok(vec![Instruction::Rem]),
 			Operator::BitAnd             => Ok(vec![Instruction::And]),
 			Operator::BitOr              => Ok(vec![Instruction::Or]),
-			Operator::BitXor             => unimplemented!(),
-			Operator::BitLeftShift       => unimplemented!(),
-			Operator::BitRightShift      => unimplemented!(),
+			Operator::BitXor             => Ok(vec![Instruction::Xor]),
+			Operator::BitLeftShift       => Ok(vec![Instruction::Lshift]),
+			Operator::BitRightShift      => Ok(vec![Instruction::Rshift]),
 			Operator::Equal              => Ok(vec![Instruction::Eq]),
 			Operator::NotEqual           => Ok(vec![Instruction::Neq]),
 			Operator::LessThan           => Ok(vec![Instruction::Lt]),
 			Operator::LessThanOrEqual    => Ok(vec![Instruction::Leq]),
 			Operator::GreaterThan        => Ok(vec![Instruction::Gt]),
 			Operator::GreaterThanOrEqual => Ok(vec![Instruction::Geq]),
-			Operator::And                => unimplemented!(),
-			Operator::Or                 => unimplemented!(),
+			Operator::And                => Ok(vec![Instruction::And]),
+			Operator::Or => {
+				// for bytecode, T=0, F=1
+				// we can assume that the stack already has the 2 values present
 
-			// assignment operators
-			Operator::Assign => unimplemented!(),
+				// T or T => T
+				// T or F => T
+				// F or T => T
+				// F or F => F
+
+				// ((0 + 0) >> 1) => 0
+				// ((0 + 1) >> 1) => 0
+				// ((1 + 0) >> 1) => 0
+				// ((1 + 1) >> 1) => 1
+
+				Ok(vec![
+					// put the result of the addition on the stack
+					Instruction::Add,
+					// then shift it right by one
+					Instruction::push_integer("1".to_string()),
+					Instruction::Rshift,
+
+				])
+			},
+
+			// we should never be able to get this far as its handled by infix
+			Operator::Assign => {
+				return Err(vec![
+					internal_error(ErrorCode::E1012,
+						Location::end(),
+						"Assignment operator does not have enough information to be converted to bytecode".to_string())
+				]);
+			},
 
 			Operator::PlusAssign
 			| Operator::MinusAssign
@@ -418,8 +474,12 @@ impl TToBytecode for Operator {
 			| Operator::BitXorAssign
 			| Operator::BitLeftShiftAssign
 			| Operator::BitRightShiftAssign => {
-				// internal error
-				unimplemented!()
+				return Err(vec![
+					internal_error(ErrorCode::E1011,
+						Location::end(),
+						format!("Complex assignment operator found during bytecode generation: {:?}",
+							self))
+				]);
 			}
 		}
 	}

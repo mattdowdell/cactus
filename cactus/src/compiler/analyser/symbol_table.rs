@@ -100,7 +100,7 @@ impl SymbolTable {
 				let item = SymbolItem::Symbol(symbol);
 
 				self.items.push(item);
-				self.argument_offset += 1; // TODO: test this
+				self.argument_offset += 1;
 
 				Ok(self.argument_offset - 1)
 			}
@@ -136,7 +136,7 @@ impl SymbolTable {
 				let item = SymbolItem::Symbol(symbol);
 
 				self.items.push(item);
-				self.local_offset += 1; // TODO: test this
+				self.local_offset += 1;
 
 				Ok(self.local_offset - 1)
 			}

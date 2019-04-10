@@ -6,5 +6,5 @@ mod parser;
 mod eval;
 mod interpreter;
 
-pub use parser::{Instruction, Symbol};
+pub use parser::{Instruction, Literal, Symbol};
 pub use interpreter::Interpreter;

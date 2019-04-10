@@ -295,13 +295,12 @@ impl<'a> Parser<'a> {
 
 	// Parse a return statement.
 	fn parse_return_statement(&mut self) -> Result<Statement, CompilationError> {
-		self.expect_peek(TokenType::Return)?;
-
+		let start = self.expect_peek(TokenType::Return)?;
 		let expr = self.parse_expression(Precedence::Lowest)?;
 
 		self.expect_peek(TokenType::Semicolon)?;
 
-		Ok(Statement::Return(expr))
+		Ok(Statement::Return(Return::new(expr, start.location)))
 	}
 
 	// Parse an if statement.
@@ -1618,9 +1617,10 @@ mod test {
 	fn test_return_statement() {
 		let mut parser = Parser::new("return 1;");
 		let expected = vec![
-			Statement::Return(
-				expr_literal_int!("1", loc!(1, 8)),
-			)
+			Statement::Return(Return {
+				location: loc!(1, 1),
+				value: expr_literal_int!("1", loc!(1, 8)),
+			})
 		];
 
 		for expected in expected.iter() {
@@ -1959,9 +1959,10 @@ mod test {
 							loc!(1, 19),
 						),
 					),
-					Statement::Return(
-						expr_literal_int!("5", loc!(1, 42))
-					),
+					Statement::Return(Return {
+						location: loc!(1, 35),
+						value: expr_literal_int!("5", loc!(1, 42))
+					}),
 				],
 				0,
 				loc!(1, 1),
