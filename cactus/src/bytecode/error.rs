@@ -96,6 +96,7 @@ pub enum ErrorCode {
 	E0208, // non-integer on the stack
 	E0209, // non-symbol on the stack
 	E0210, // non-address on the stack
+	E0211, // non-float on the stack
 
 	// runtime errors
 	E0400, // unable to convert value to i32

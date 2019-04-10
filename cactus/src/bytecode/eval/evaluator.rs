@@ -74,6 +74,13 @@ impl Evaluator {
 					let result = left + right;
 					self.push(StackItem::Integer(result));
 				},
+				Instruction::Addf => {
+					let left = self.pop_float()?;
+					let right = self.pop_float()?;
+
+					let result = left + right;
+					self.push(StackItem::Float(result));
+				},
 				Instruction::And => {
 					let left = self.pop_integer()?;
 					let right = self.pop_integer()?;
@@ -93,6 +100,13 @@ impl Evaluator {
 
 					let result = left / right;
 					self.push(StackItem::Integer(result));
+				},
+				Instruction::Divf => {
+					let left = self.pop_float()?;
+					let right = self.pop_float()?;
+
+					let result = left / right;
+					self.push(StackItem::Float(result));
 				},
 				Instruction::Dumpstack => {
 					println!("{:?}", self.stack.clone());
@@ -126,6 +140,16 @@ impl Evaluator {
 						self.push(StackItem::Integer(1));
 					}
 				},
+				Instruction::Geqf => {
+					let left = self.pop_float()?;
+					let right = self.pop_float()?;
+
+					if left >= right {
+						self.push(StackItem::Integer(0));
+					} else {
+						self.push(StackItem::Integer(1));
+					}
+				},
 				Instruction::Gt => {
 					let left = self.pop_integer()?;
 					let right = self.pop_integer()?;
@@ -134,7 +158,18 @@ impl Evaluator {
 						self.push(StackItem::Integer(0));
 					} else {
 						self.push(StackItem::Integer(1));
-					}},
+					}
+				},
+				Instruction::Gtf => {
+					let left = self.pop_float()?;
+					let right = self.pop_float()?;
+
+					if left > right {
+						self.push(StackItem::Integer(0));
+					} else {
+						self.push(StackItem::Integer(1));
+					}
+				},
 				Instruction::Halt => {
 					// TODO: return a code saying what this was?
 					return Ok(());
@@ -203,6 +238,16 @@ impl Evaluator {
 						self.push(StackItem::Integer(1));
 					}
 				},
+				Instruction::Leqf => {
+					let left = self.pop_float()?;
+					let right = self.pop_float()?;
+
+					if left <= right {
+						self.push(StackItem::Integer(0));
+					} else {
+						self.push(StackItem::Integer(1));
+					}
+				},
 				Instruction::Load => {
 					let symbol = self.pop_symbol()?;
 
@@ -242,6 +287,16 @@ impl Evaluator {
 						self.push(StackItem::Integer(1));
 					}
 				},
+				Instruction::Ltf => {
+					let left = self.pop_float()?;
+					let right = self.pop_float()?;
+
+					if left < right {
+						self.push(StackItem::Integer(0));
+					} else {
+						self.push(StackItem::Integer(1));
+					}
+				},
 				Instruction::Lshift => {
 					let left = self.pop_integer()?;
 					let right = self.pop_integer()?;
@@ -256,6 +311,13 @@ impl Evaluator {
 					let result = left - right;
 					self.push(StackItem::Integer(result));
 				},
+				Instruction::Minusf => {
+					let left = self.pop_float()?;
+					let right = self.pop_float()?;
+
+					let result = left - right;
+					self.push(StackItem::Float(result));
+				},
 				Instruction::Movret => {
 					let item = self.pop()?;
 					self.return_register = Some(item);
@@ -266,6 +328,13 @@ impl Evaluator {
 
 					let result = left * right;
 					self.push(StackItem::Integer(result));
+				},
+				Instruction::Mulf => {
+					let left = self.pop_float()?;
+					let right = self.pop_float()?;
+
+					let result = left * right;
+					self.push(StackItem::Float(result));
 				},
 				Instruction::Neq => {
 					let left = self.pop_integer()?;
@@ -357,6 +426,14 @@ impl Evaluator {
 
 					let result = left % right;
 					self.push(StackItem::Integer(result));
+
+				},
+				Instruction::Remf => {
+					let left = self.pop_float()?;
+					let right = self.pop_float()?;
+
+					let result = left % right;
+					self.push(StackItem::Float(result));
 
 				},
 				Instruction::Return => {
@@ -473,6 +550,22 @@ impl Evaluator {
 					ErrorCode::E0208,
 					Location::end(),
 					format!("Expected Integer on the stack, found: {:?}",
+						item)))
+			}
+		}
+	}
+
+	// Remove a float from the top of the stack.
+	fn pop_float(&mut self) -> Result<f32, BytecodeError> {
+		let item = self.pop()?;
+
+		match item {
+			StackItem::Float(val) => Ok(val),
+			_ => {
+				Err(BytecodeError::new(ErrorType::LookupError,
+					ErrorCode::E0211,
+					Location::end(),
+					format!("Expected Float on the stack, found: {:?}",
 						item)))
 			}
 		}

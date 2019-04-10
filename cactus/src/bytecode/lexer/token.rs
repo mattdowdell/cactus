@@ -62,15 +62,24 @@ impl Token {
 			"EQ"        => TokenType::Eq,
 			"NEQ"       => TokenType::Neq,
 			"LEQ"       => TokenType::Leq,
+			"LEQF"      => TokenType::Leqf,
 			"GEQ"       => TokenType::Geq,
+			"GEQF"      => TokenType::Geqf,
 			"LT"        => TokenType::Lt,
+			"LTF"       => TokenType::Ltf,
 			"GT"        => TokenType::Gt,
+			"GTF"       => TokenType::Gtf,
 			"COMPL"     => TokenType::Compl,
 			"MINUS"     => TokenType::Minus,
+			"MINUSF"    => TokenType::Minusf,
 			"ADD"       => TokenType::Add,
+			"ADDF"      => TokenType::Addf,
 			"DIV"       => TokenType::Div,
+			"DIVF"      => TokenType::Divf,
 			"REM"       => TokenType::Rem,
+			"REMF"      => TokenType::Remf,
 			"MUL"       => TokenType::Mul,
+			"MULF"      => TokenType::Mulf,
 			"AND"       => TokenType::And,
 			"OR"        => TokenType::Or,
 			"NOT"       => TokenType::Not,
@@ -139,15 +148,24 @@ impl fmt::Display for Token {
 			| TokenType::Eq
 			| TokenType::Neq
 			| TokenType::Leq
+			| TokenType::Leqf
 			| TokenType::Geq
+			| TokenType::Geqf
 			| TokenType::Lt
+			| TokenType::Ltf
 			| TokenType::Gt
+			| TokenType::Gtf
 			| TokenType::Compl
 			| TokenType::Minus
+			| TokenType::Minusf
 			| TokenType::Add
+			| TokenType::Addf
 			| TokenType::Div
+			| TokenType::Divf
 			| TokenType::Rem
+			| TokenType::Remf
 			| TokenType::Mul
+			| TokenType::Mulf
 			| TokenType::And
 			| TokenType::Or
 			| TokenType::Not
@@ -235,15 +253,24 @@ mod test {
 			("EQ", TokenType::Eq),
 			("NEQ", TokenType::Neq),
 			("LEQ", TokenType::Leq),
+			("LEQF", TokenType::Leqf),
 			("GEQ", TokenType::Geq),
+			("GEQF", TokenType::Geqf),
 			("LT", TokenType::Lt),
+			("LTF", TokenType::Ltf),
 			("GT", TokenType::Gt),
+			("GTF", TokenType::Gtf),
 			("COMPL", TokenType::Compl),
 			("MINUS", TokenType::Minus),
+			("MINUSF", TokenType::Minusf),
 			("ADD", TokenType::Add),
+			("ADDF", TokenType::Addf),
 			("DIV", TokenType::Div),
+			("DIVF", TokenType::Divf),
 			("REM", TokenType::Rem),
+			("REMF", TokenType::Remf),
 			("MUL", TokenType::Mul),
+			("MULF", TokenType::Mulf),
 			("AND", TokenType::And),
 			("OR", TokenType::Or),
 			("NOT", TokenType::Not),
