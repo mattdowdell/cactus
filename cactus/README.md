@@ -33,3 +33,12 @@ To run the tests, we also use cargo:
 ```bash
 cargo test
 ```
+
+## Examples
+
+A number of examples written in Cactus can be found in the examples directory. These can be compiled and executes as follows:
+
+```bash
+cargo run --bin cactusc examples/${name}.cactus > examples/${name}.smac
+cargo run --bin maude examples/${name}.smac
+```

@@ -230,6 +230,8 @@ impl TToBytecode for Loop {
 
 		instructions.push(Instruction::Labeldef(format!("{}", loop_start)));
 		instructions.extend(self.body.to_bytecode()?);
+		instructions.push(Instruction::Pushaddr(format!("{}", loop_start)));
+		instructions.push(Instruction::Jmp);
 		instructions.push(Instruction::Labeldef(format!("{}", loop_end)));
 
 		Ok(instructions)

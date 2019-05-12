@@ -25,14 +25,14 @@ fn fib(n: i32) -> i32 {
 }
 
 fn main() {
-	print fib(1);
-	print fib(2);
-	print fib(3);
-	print fib(4);
-	print fib(5);
-	print fib(6);
-	print fib(7);
-	print fib(8);
-	print fib(9);
-	print fib(10);
+	let i: i32 = 1;
+
+	loop {
+		if i > 46 {
+			break;
+		}
+
+		print fib(i);
+		i += 1;
+	}
 }
